@@ -1,8 +1,10 @@
 import os
 import shutil
+import threading
 from pathlib import Path
 from typing import List, Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -12,9 +14,10 @@ from backend.ingest import (
     list_indexed_documents,
     delete_document,
     delete_subject,
-    reset_index
+    reset_index,
+    get_ollama_client
 )
-from backend.rag import ask_question, AskResponse
+from backend.rag import ask_question, AskResponse, stream_ask_question
 from backend.quiz import (
     generate_quiz,
     grade_quiz_submission,
@@ -37,6 +40,27 @@ app = FastAPI(
     description="Offline, Private AI Study Partner powered by Local LLMs (Ollama)",
     version="1.0.0"
 )
+
+
+def warmup_models():
+    """Background task to pre-load Ollama LLM and embedding models into memory."""
+    try:
+        client = get_ollama_client()
+        # Warm up main LLM model so it stays in RAM/VRAM
+        client.chat(
+            model=settings.llm_model,
+            messages=[{"role": "user", "content": "hi"}],
+            options={"num_predict": 1},
+            keep_alive=settings.keep_alive
+        )
+        # Warm up embedding model
+        client.embed(model=settings.embedding_model, input=["warmup"])
+    except Exception as e:
+        print(f"Model warm-up notice: {e}")
+
+
+
+
 
 # Enable CORS for local dev frontends (Vite, React, Next, etc.)
 app.add_middleware(
@@ -203,6 +227,32 @@ def ask_question_endpoint(request: AskRequest):
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process question: {str(e)}")
+
+
+@app.post("/ask/stream")
+def ask_question_stream_endpoint(request: AskRequest):
+    """
+    Stream question answers via Server-Sent Events (SSE) for instant time-to-first-token.
+    """
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    return StreamingResponse(
+        stream_ask_question(
+            question=request.question,
+            top_k=request.top_k or settings.top_k_retrieval,
+            topic=request.topic
+        ),
+        media_type="text/event-stream"
+    )
+
+
+@app.post("/warmup")
+def warmup_endpoint():
+    """Trigger background model warm-up on demand."""
+    threading.Thread(target=warmup_models, daemon=True).start()
+    return {"status": "started", "message": f"Pre-loading {settings.llm_model} into memory."}
+
 
 
 @app.post("/quiz/generate", response_model=Quiz)

@@ -1,4 +1,5 @@
-from typing import List, Dict, Any, Optional
+import json
+from typing import List, Dict, Any, Optional, Generator
 from pydantic import BaseModel, Field
 
 from backend.config import settings
@@ -124,6 +125,11 @@ def ask_question(
     )
 
     client = get_ollama_client()
+    options = {
+        "temperature": settings.rag_temperature,
+        "num_predict": settings.max_predict_tokens
+    }
+
     try:
         response = client.chat(
             model=settings.llm_model,
@@ -131,9 +137,7 @@ def ask_question(
                 {"role": "system", "content": RAG_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt}
             ],
-            options={
-                "temperature": settings.rag_temperature
-            },
+            options=options,
             keep_alive=settings.keep_alive
         )
         answer_text = response["message"]["content"].strip()
@@ -146,9 +150,7 @@ def ask_question(
                     {"role": "system", "content": RAG_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt}
                 ],
-                options={
-                    "temperature": settings.rag_temperature
-                },
+                options=options,
                 keep_alive=settings.keep_alive
             )
             answer_text = response["message"]["content"].strip()
@@ -161,3 +163,98 @@ def ask_question(
         model=settings.llm_model,
         has_notes=True
     )
+
+
+def stream_ask_question(
+    question: str,
+    top_k: int = settings.top_k_retrieval,
+    topic: Optional[str] = None
+) -> Generator[str, None, None]:
+    """
+    RAG streaming generator yielding Server-Sent Events (SSE) JSON payloads for real-time streaming.
+    """
+    retrieval = retrieve_context(query=question, top_k=top_k, topic=topic)
+    
+    if retrieval["total_chunks"] == 0:
+        msg = "No study materials found. Please upload your course notes or PDFs first to start asking questions!"
+        yield f"data: {json.dumps({'type': 'sources', 'sources': [], 'model': settings.llm_model, 'has_notes': False})}\n\n"
+        yield f"data: {json.dumps({'type': 'token', 'token': msg})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'answer': msg})}\n\n"
+        return
+
+    if not retrieval["context_text"]:
+        msg = "I could not find any relevant sections in your uploaded notes to answer this question."
+        yield f"data: {json.dumps({'type': 'sources', 'sources': [], 'model': settings.llm_model, 'has_notes': True})}\n\n"
+        yield f"data: {json.dumps({'type': 'token', 'token': msg})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'answer': msg})}\n\n"
+        return
+
+    # Send citations immediately
+    sources_data = [s.model_dump() for s in retrieval["citations"]]
+    yield f"data: {json.dumps({'type': 'sources', 'sources': sources_data, 'model': settings.llm_model, 'has_notes': True})}\n\n"
+
+    user_prompt = RAG_USER_PROMPT.format(
+        context=retrieval["context_text"],
+        question=question
+    )
+
+    client = get_ollama_client()
+    options = {
+        "temperature": settings.rag_temperature,
+        "num_predict": settings.max_predict_tokens
+    }
+
+    def _extract_token(chunk: Any) -> str:
+        if isinstance(chunk, dict):
+            return chunk.get("message", {}).get("content", "")
+        msg_obj = getattr(chunk, "message", None)
+        if msg_obj:
+            return getattr(msg_obj, "content", "")
+        return ""
+
+    full_tokens: List[str] = []
+    target_model = settings.llm_model
+
+    try:
+        stream = client.chat(
+            model=target_model,
+            messages=[
+                {"role": "system", "content": RAG_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ],
+            options=options,
+            stream=True,
+            keep_alive=settings.keep_alive
+        )
+        for chunk in stream:
+            token = _extract_token(chunk)
+            if token:
+                full_tokens.append(token)
+                yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done', 'answer': ''.join(full_tokens)})}\n\n"
+
+    except Exception:
+        # Fallback to secondary model
+        try:
+            target_model = settings.fallback_model
+            stream = client.chat(
+                model=target_model,
+                messages=[
+                    {"role": "system", "content": RAG_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                options=options,
+                stream=True,
+                keep_alive=settings.keep_alive
+            )
+            for chunk in stream:
+                token = _extract_token(chunk)
+                if token:
+                    full_tokens.append(token)
+                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'done', 'answer': ''.join(full_tokens)})}\n\n"
+        except Exception as err:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(err)})}\n\n"
+

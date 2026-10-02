@@ -21,14 +21,15 @@ class Settings(BaseModel):
     llm_model: str = Field(default_factory=lambda: os.getenv("LLM_MODEL", "qwen2.5:7b"))
     fallback_model: str = Field(default_factory=lambda: os.getenv("FALLBACK_MODEL", "llama3.2:3b"))
     embedding_model: str = Field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "nomic-embed-text:latest"))
-    keep_alive: str = "10m"
+    keep_alive: str = "30m"
 
     # Ingestion & Chunking
     chunk_size: int = 600  # characters per chunk
     chunk_overlap: int = 100  # overlap between consecutive chunks
 
     # Retrieval & RAG
-    top_k_retrieval: int = 5
+    top_k_retrieval: int = 3
+    max_predict_tokens: int = 400
     rag_temperature: float = 0.2
     quiz_temperature: float = 0.6
 

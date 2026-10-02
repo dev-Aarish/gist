@@ -734,15 +734,17 @@
   flex-direction: column;
   gap: var(--space-5);
   padding-bottom: var(--space-3);
+  overflow-anchor: auto;
 }
 
 .msg {
   display: flex;
-  contain: content;
+  overflow-anchor: none;
 }
 
 .msg:last-child {
   animation: msg-in var(--dur-panel) var(--ease-out) both;
+  overflow-anchor: auto;
 }
 
 .msg--user {

@@ -1,8 +1,8 @@
 import { ArrowUp, AtSign, BookOpen, Paperclip, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { askQuestion, uploadNotes } from '../lib/api'
+import { askQuestionStream, uploadNotes } from '../lib/api'
 import { pluralize } from '../lib/format'
-import type { DocumentInfo } from '../lib/types'
+import type { Citation, DocumentInfo } from '../lib/types'
 import type { ScreenId } from '../lib/nav'
 import type { ChatSession } from '../hooks/useChatSessions'
 import { BackendNotice } from '../components/BackendNotice'
@@ -91,13 +91,35 @@ export function AskScreen({
     setTurns(activeSession?.turns ?? [])
   }, [activeSessionId, activeSession])
 
+  const userScrolledRef = useRef(false)
+  const prevTurnsCountRef = useRef(turns.length)
+
+  // Track if user manually scrolls away from bottom
+  useEffect(() => {
+    function handleScroll() {
+      const threshold = 160
+      const distanceFromBottom =
+        document.documentElement.scrollHeight - (window.innerHeight + window.scrollY)
+      userScrolledRef.current = distanceFromBottom > threshold
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Auto-scroll ONCE when new messages are added, never on every streaming token frame
   useEffect(() => {
     if (turns.length === 0) return
-    const id = requestAnimationFrame(() => {
-      endRef.current?.scrollIntoView({ block: 'end' })
-    })
-    return () => cancelAnimationFrame(id)
-  }, [turns])
+
+    if (turns.length !== prevTurnsCountRef.current) {
+      prevTurnsCountRef.current = turns.length
+      if (!userScrolledRef.current) {
+        const id = requestAnimationFrame(() => {
+          endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        })
+        return () => cancelAnimationFrame(id)
+      }
+    }
+  }, [turns.length])
 
   useEffect(() => {
     const el = inputRef.current
@@ -154,6 +176,7 @@ export function AskScreen({
     const pendingId = nextTurnId()
     if (!customQuestion) setInput('')
     setSending(true)
+    userScrolledRef.current = false
 
     const userTurn: ChatTurn = {
       id: nextTurnId(),
@@ -180,21 +203,79 @@ export function AskScreen({
     }
 
     try {
-      const response = await askQuestion(question, { topic: topicToAsk ?? undefined })
-      const finalizedTurns = nextTurns.map((turn) =>
-        turn.id === pendingId
-          ? {
-              ...turn,
-              text: response.answer,
-              sources: response.sources,
-              model: response.model,
+      let accumulatedText = ''
+      let accumulatedSources: Citation[] | undefined = undefined
+      let modelName = model ?? undefined
+      let rafId: number | null = null
+      let pendingUpdate = false
+
+      const scheduleUpdate = (isFinal = false) => {
+        if (isFinal) {
+          if (rafId) cancelAnimationFrame(rafId)
+          rafId = null
+          pendingUpdate = false
+          setTurns((prevTurns) => {
+            const finalizedTurns = prevTurns.map((turn) =>
+              turn.id === pendingId
+                ? {
+                    ...turn,
+                    streaming: false,
+                    text: accumulatedText,
+                    sources: accumulatedSources,
+                    model: modelName,
+                  }
+                : turn
+            )
+            if (currentSessionId && onUpdateTurns) {
+              onUpdateTurns(currentSessionId, finalizedTurns)
             }
-          : turn
-      )
-      setTurns(finalizedTurns)
-      if (currentSessionId && onUpdateTurns) {
-        onUpdateTurns(currentSessionId, finalizedTurns)
+            return finalizedTurns
+          })
+          return
+        }
+
+        if (!pendingUpdate) {
+          pendingUpdate = true
+          rafId = requestAnimationFrame(() => {
+            pendingUpdate = false
+            setTurns((prevTurns) =>
+              prevTurns.map((turn) =>
+                turn.id === pendingId
+                  ? {
+                      ...turn,
+                      text: accumulatedText,
+                      sources: accumulatedSources,
+                      model: modelName,
+                      streaming: true,
+                    }
+                  : turn
+              )
+            )
+          })
+        }
       }
+
+      await askQuestionStream(
+        question,
+        { topic: topicToAsk ?? undefined },
+        (chunk) => {
+          const isFinal = chunk.type === 'done' || chunk.type === 'error'
+          if (chunk.type === 'sources') {
+            if (chunk.sources) accumulatedSources = chunk.sources
+            if (chunk.model) modelName = chunk.model
+          } else if (chunk.type === 'token' && chunk.token) {
+            accumulatedText += chunk.token
+          } else if (chunk.type === 'done') {
+            if (chunk.answer) accumulatedText = chunk.answer
+          } else if (chunk.type === 'error') {
+            throw new Error(chunk.error || 'Streaming error occurred')
+          }
+
+          scheduleUpdate(isFinal)
+        }
+      )
+
+      scheduleUpdate(true)
     } catch (error) {
       const errorTurns = nextTurns.map((turn) =>
         turn.id === pendingId

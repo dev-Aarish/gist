@@ -10,23 +10,11 @@ import { usePrefersReducedMotion } from './useMediaQuery'
 export function useStreamingText(full: string, enabled = true) {
   const reduceMotion = usePrefersReducedMotion()
   const streaming = enabled && !reduceMotion
-  const [shown, setShown] = useState(streaming ? '' : full)
+  const [shown, setShown] = useState(full)
 
   useEffect(() => {
-    if (!streaming) return
-
-    setShown('')
-    // Roughly a constant duration regardless of answer length.
-    const step = Math.max(2, Math.round(full.length / 110))
-    let index = 0
-    const id = window.setInterval(() => {
-      index = Math.min(full.length, index + step)
-      setShown(full.slice(0, index))
-      if (index >= full.length) window.clearInterval(id)
-    }, 16)
-
-    return () => window.clearInterval(id)
-  }, [full, streaming])
+    setShown(full)
+  }, [full])
 
   if (!streaming) {
     return {
@@ -37,6 +25,6 @@ export function useStreamingText(full: string, enabled = true) {
 
   return {
     text: shown,
-    isStreaming: shown.length < full.length,
+    isStreaming: true,
   }
 }
