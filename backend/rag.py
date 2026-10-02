@@ -25,10 +25,12 @@ class AskResponse(BaseModel):
 def retrieve_context(
     query: str,
     top_k: int = settings.top_k_retrieval,
-    topic: Optional[str] = None
+    topic: Optional[str] = None,
+    source: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Retrieve top-k relevant chunks from ChromaDB for the given query.
+    Supports filtering by topic (subject) and/or source (specific note file).
     """
     collection = get_collection()
     
@@ -42,9 +44,30 @@ def retrieve_context(
     if not query_embeddings:
         return {"context_text": "", "citations": [], "total_chunks": count}
 
+    target_topic = topic
+    target_source = source
+
+    # Handle topic/source combined string (e.g. topic="sql/file.pdf" or source="sql/file.pdf")
+    if target_topic and "/" in target_topic and not target_source:
+        parts = target_topic.split("/", 1)
+        target_topic = parts[0]
+        target_source = parts[1]
+    elif target_source and "/" in target_source and not target_topic:
+        parts = target_source.split("/", 1)
+        target_topic = parts[0]
+        target_source = parts[1]
+
+    where_conditions = []
+    if target_topic:
+        where_conditions.append({"topic": target_topic})
+    if target_source:
+        where_conditions.append({"source": target_source})
+
     where_clause = None
-    if topic:
-        where_clause = {"topic": topic}
+    if len(where_conditions) == 1:
+        where_clause = where_conditions[0]
+    elif len(where_conditions) > 1:
+        where_clause = {"$and": where_conditions}
 
     # Query ChromaDB
     results = collection.query(
@@ -65,7 +88,7 @@ def retrieve_context(
         meta = metadatas[idx] if idx < len(metadatas) else {}
         distance = distances[idx] if idx < len(distances) else None
         
-        source = meta.get("source", "Uploaded Document")
+        doc_source = meta.get("source", "Uploaded Document")
         page = meta.get("page", 1)
         doc_topic = meta.get("topic", "General")
         
@@ -73,7 +96,7 @@ def retrieve_context(
         snippet = doc_text[:250] + ("..." if len(doc_text) > 250 else "")
 
         citation = Citation(
-            source=source,
+            source=doc_source,
             page=page,
             topic=doc_topic,
             text_snippet=snippet,
@@ -82,7 +105,7 @@ def retrieve_context(
         citations.append(citation)
 
         context_blocks.append(
-            f"[Source: {source}, Page: {page}, Topic: {doc_topic}]\n{doc_text}"
+            f"[Source: {doc_source}, Page: {page}, Topic: {doc_topic}]\n{doc_text}"
         )
 
     context_text = "\n\n".join(context_blocks)
@@ -96,12 +119,13 @@ def retrieve_context(
 def ask_question(
     question: str,
     top_k: int = settings.top_k_retrieval,
-    topic: Optional[str] = None
+    topic: Optional[str] = None,
+    source: Optional[str] = None
 ) -> AskResponse:
     """
     RAG pipeline: retrieve relevant context chunks and generate a grounded answer.
     """
-    retrieval = retrieve_context(query=question, top_k=top_k, topic=topic)
+    retrieval = retrieve_context(query=question, top_k=top_k, topic=topic, source=source)
     
     if retrieval["total_chunks"] == 0:
         return AskResponse(
@@ -168,12 +192,13 @@ def ask_question(
 def stream_ask_question(
     question: str,
     top_k: int = settings.top_k_retrieval,
-    topic: Optional[str] = None
+    topic: Optional[str] = None,
+    source: Optional[str] = None
 ) -> Generator[str, None, None]:
     """
     RAG streaming generator yielding Server-Sent Events (SSE) JSON payloads for real-time streaming.
     """
-    retrieval = retrieve_context(query=question, top_k=top_k, topic=topic)
+    retrieval = retrieve_context(query=question, top_k=top_k, topic=topic, source=source)
     
     if retrieval["total_chunks"] == 0:
         msg = "No study materials found. Please upload your course notes or PDFs first to start asking questions!"

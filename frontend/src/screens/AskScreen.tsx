@@ -59,32 +59,72 @@ export function AskScreen({
 
   const hasNotes = documents.length > 0
 
-  // Aggregate all unique subjects
-  const allSubjects = useMemo(() => {
-    const list: string[] = []
+  type MentionTag = {
+    type: 'topic' | 'file'
+    id: string
+    label: string
+    count?: number
+    topic?: string
+    source?: string
+  }
+
+  // Aggregate all unique subjects and files
+  const allTags = useMemo<MentionTag[]>(() => {
+    const tags: MentionTag[] = []
+    const topicCounts: Record<string, number> = {}
+
     for (const doc of documents) {
       const t = doc.topic?.trim() || 'General'
-      if (!list.includes(t)) list.push(t)
+      topicCounts[t] = (topicCounts[t] || 0) + 1
     }
+
     try {
       const saved = localStorage.getItem(CUSTOM_SUBJECTS_KEY)
       if (saved) {
         const custom = JSON.parse(saved) as string[]
         for (const sub of custom) {
-          if (sub && !list.includes(sub)) list.push(sub)
+          if (!topicCounts[sub]) topicCounts[sub] = 0
         }
       }
     } catch {
       // ignore
     }
-    return list
+
+    for (const [t, count] of Object.entries(topicCounts)) {
+      tags.push({ type: 'topic', id: t, label: t, count, topic: t })
+    }
+
+    for (const doc of documents) {
+      const t = doc.topic?.trim() || 'General'
+      const id = `${t}/${doc.source}`
+      tags.push({ type: 'file', id, label: doc.source, topic: t, source: doc.source })
+    }
+
+    return tags
   }, [documents])
 
-  const filteredSubjects = useMemo(() => {
-    if (!mentionFilter) return allSubjects
+  const filteredTags = useMemo(() => {
+    if (!mentionFilter) return allTags.filter((t) => t.type === 'topic')
+    
     const q = mentionFilter.toLowerCase()
-    return allSubjects.filter((s) => s.toLowerCase().includes(q))
-  }, [allSubjects, mentionFilter])
+
+    if (q.includes('/')) {
+      const parts = q.split('/')
+      const topicQuery = parts[0]
+      const fileQuery = parts.slice(1).join('/')
+      
+      return allTags.filter((t) => {
+        if (t.type !== 'file') return false
+        const tTopic = (t.topic || '').toLowerCase()
+        const tFile = (t.source || '').toLowerCase()
+        return tTopic.startsWith(topicQuery) && tFile.includes(fileQuery)
+      })
+    }
+
+    return allTags.filter(
+      (t) => t.type === 'topic' && (t.label.toLowerCase().includes(q) || t.id.toLowerCase().includes(q))
+    )
+  }, [allTags, mentionFilter])
 
   // Keep turns synced when switching sessions
   useEffect(() => {
@@ -148,8 +188,8 @@ export function AskScreen({
     setShowMentionMenu(false)
   }
 
-  function selectSubject(subject: string) {
-    setSelectedTopic(subject)
+  function selectTag(tagId: string) {
+    setSelectedTopic(tagId)
     if (inputRef.current) {
       const cursor = inputRef.current.selectionStart ?? input.length
       const textBeforeCursor = input.slice(0, cursor)
@@ -255,9 +295,22 @@ export function AskScreen({
         }
       }
 
+      let finalTopic: string | undefined = undefined
+      let finalSource: string | undefined = undefined
+
+      if (topicToAsk) {
+        if (topicToAsk.includes('/')) {
+          const [t, s] = topicToAsk.split('/')
+          finalTopic = t
+          finalSource = s
+        } else {
+          finalTopic = topicToAsk
+        }
+      }
+
       await askQuestionStream(
         question,
-        { topic: topicToAsk ?? undefined },
+        { topic: finalTopic, source: finalSource },
         (chunk) => {
           const isFinal = chunk.type === 'done' || chunk.type === 'error'
           if (chunk.type === 'sources') {
@@ -356,7 +409,7 @@ export function AskScreen({
   // Never claim there are no notes when the real problem is a silent backend.
   if (offline && !hasNotes) {
     return (
-      <div className="screen">
+      <div className="screen screen--wide">
         <header className="page-head">
           <div className="page-head__meta">
             <h1 className="t-h1">Ask your notes</h1>
@@ -369,7 +422,7 @@ export function AskScreen({
 
   if (!hasNotes && turns.length === 0) {
     return (
-      <div className="screen">
+      <div className="screen screen--wide">
         <div className="panel regmark">
           <EmptyState
             icon={BookOpen}
@@ -397,8 +450,8 @@ export function AskScreen({
       {selectedTopic ? (
         <div className="composer__tag-bar">
           <span className="composer__tag">
-            <AtSign size={11} strokeWidth={2} />
-            <span>{selectedTopic}</span>
+            {selectedTopic.includes('/') ? <Paperclip size={11} strokeWidth={2} /> : <AtSign size={11} strokeWidth={2} />}
+            <span>{selectedTopic.includes('/') ? selectedTopic.split('/')[1] : selectedTopic}</span>
             <button
               type="button"
               className="composer__tag-clear"
@@ -413,31 +466,31 @@ export function AskScreen({
       ) : null}
 
       <div style={{ position: 'relative' }}>
-        {showMentionMenu && allSubjects.length > 0 ? (
+        {showMentionMenu && allTags.length > 0 ? (
           <div className="mention-popup" role="listbox" aria-label="Select subject">
-            {filteredSubjects.length === 0 ? (
+            {filteredTags.length === 0 ? (
               <div style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>
                 No subjects match &ldquo;{mentionFilter}&rdquo;
               </div>
             ) : (
-              filteredSubjects.map((sub, idx) => {
-                const count = documents.filter((d) => (d.topic?.trim() || 'General') === sub).length
-                return (
-                  <button
-                    key={sub}
-                    type="button"
-                    role="option"
-                    aria-selected={idx === highlightIndex}
-                    className={`mention-popup__item${idx === highlightIndex ? ' mention-popup__item--active' : ''}`}
-                    onClick={() => selectSubject(sub)}
-                  >
-                    <span className="mention-popup__name">@{sub}</span>
-                    <span className="mention-popup__meta">
-                      {count} {pluralize(count, 'file')}
-                    </span>
-                  </button>
-                )
-              })
+              filteredTags.map((tag, idx) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  role="option"
+                  aria-selected={idx === highlightIndex}
+                  className={`mention-popup__item${idx === highlightIndex ? ' mention-popup__item--active' : ''}`}
+                  onClick={() => selectTag(tag.id)}
+                >
+                  <span className="mention-popup__name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {tag.type === 'file' ? <Paperclip size={12} style={{ flexShrink: 0 }} /> : null}
+                    <span>{tag.label}</span>
+                  </span>
+                  <span className="mention-popup__meta">
+                    {tag.type === 'topic' ? `${tag.count} ${pluralize(tag.count || 0, 'file')}` : tag.topic}
+                  </span>
+                </button>
+              ))
             )}
           </div>
         ) : null}
@@ -483,20 +536,21 @@ export function AskScreen({
             aria-label="Your question"
             onChange={handleInputChange}
             onKeyDown={(event) => {
-              if (showMentionMenu && filteredSubjects.length > 0) {
+              if (showMentionMenu && filteredTags.length > 0) {
                 if (event.key === 'ArrowDown') {
                   event.preventDefault()
-                  setHighlightIndex((prev) => (prev + 1) % filteredSubjects.length)
+                  setHighlightIndex((prev) => (prev + 1) % filteredTags.length)
                   return
                 }
                 if (event.key === 'ArrowUp') {
                   event.preventDefault()
-                  setHighlightIndex((prev) => (prev - 1 + filteredSubjects.length) % filteredSubjects.length)
+                  setHighlightIndex((prev) => (prev - 1 + filteredTags.length) % filteredTags.length)
                   return
                 }
                 if (event.key === 'Enter' || event.key === 'Tab') {
                   event.preventDefault()
-                  selectSubject(filteredSubjects[highlightIndex] ?? filteredSubjects[0])
+                  const target = filteredTags[highlightIndex] ?? filteredTags[0]
+                  if (target) selectTag(target.id)
                   return
                 }
                 if (event.key === 'Escape') {
@@ -531,7 +585,7 @@ export function AskScreen({
   )
 
   return (
-    <div className={`screen ${turns.length === 0 ? 'screen--ask-empty' : ''}`}>
+    <div className={`screen screen--wide ${turns.length === 0 ? 'screen--ask-empty' : ''}`}>
       <header className="page-head">
         <div className="page-head__meta">
           <h1 className="t-h1">Ask your notes</h1>

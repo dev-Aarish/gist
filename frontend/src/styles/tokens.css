@@ -37,8 +37,8 @@
   --dur-theme: 150ms;
 
   /* --- Layout ------------------------------------------------------------- */
-  --content-max: 760px;
-  --content-wide: 1040px;
+  --content-max: 920px;
+  --content-wide: 1120px;
   --sidebar-w: 240px;
 }
 

@@ -77,11 +77,12 @@ class AskRequest(BaseModel):
     question: str
     top_k: Optional[int] = Field(default=settings.top_k_retrieval, ge=1, le=15)
     topic: Optional[str] = None
+    source: Optional[str] = None
 
 
 class QuizGenerateRequest(BaseModel):
     topic: Optional[str] = None
-    num_questions: int = Field(default=5, ge=1, le=10)
+    num_questions: int = Field(default=5, ge=1, le=20)
     use_weak_spots: bool = False
 
 
@@ -222,7 +223,8 @@ def ask_question_endpoint(request: AskRequest):
         response = ask_question(
             question=request.question,
             top_k=request.top_k,
-            topic=request.topic
+            topic=request.topic,
+            source=request.source
         )
         return response
     except Exception as e:
@@ -241,7 +243,8 @@ def ask_question_stream_endpoint(request: AskRequest):
         stream_ask_question(
             question=request.question,
             top_k=request.top_k or settings.top_k_retrieval,
-            topic=request.topic
+            topic=request.topic,
+            source=request.source
         ),
         media_type="text/event-stream"
     )

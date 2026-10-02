@@ -20,7 +20,6 @@ export interface QuizIntent {
 
 type Stage = 'setup' | 'generating' | 'answering' | 'grading' | 'done'
 
-const COUNTS = [5, 8]
 const STORAGE_KEY = 'gist_active_quiz_v1'
 
 interface SavedQuizSession {
@@ -59,7 +58,7 @@ export function QuizScreen({
     return 'setup'
   })
   const [topic, setTopic] = useState('')
-  const [count, setCount] = useState(COUNTS[0])
+  const [count, setCount] = useState(5)
   const [quiz, setQuiz] = useState<Quiz | null>(() => {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY)
@@ -146,7 +145,7 @@ export function QuizScreen({
     try {
       const generated = await generateQuiz({
         topic: options.topic ?? null,
-        numQuestions: options.numQuestions ?? COUNTS[0],
+        numQuestions: options.numQuestions ?? 5,
         useWeakSpots: options.useWeakSpots ?? false,
       })
       if (!generated.questions.length) {
@@ -296,18 +295,19 @@ export function QuizScreen({
                 <span className="t-label" id="count-label">
                   Questions
                 </span>
-                <div className="seg" role="group" aria-labelledby="count-label">
-                  {COUNTS.map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className="seg__btn"
-                      aria-pressed={count === value}
-                      onClick={() => setCount(value)}
-                    >
-                      {value}
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', height: '40px' }}>
+                  <input
+                    type="range"
+                    min="5"
+                    max="20"
+                    value={count}
+                    onChange={(e) => setCount(Number(e.target.value))}
+                    aria-labelledby="count-label"
+                    style={{ width: '120px', accentColor: 'var(--blue)', cursor: 'pointer' }}
+                  />
+                  <span className="tabular" style={{ fontWeight: 500, fontSize: '15px', minWidth: '20px' }}>
+                    {count}
+                  </span>
                 </div>
               </div>
 

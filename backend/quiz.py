@@ -147,7 +147,7 @@ def generate_quiz(
     """
     context_data = fetch_context_for_quiz(
         topic=topic,
-        max_chunks=8,
+        max_chunks=max(8, min(num_questions, 20)),
         use_weak_spots=use_weak_spots
     )
 
@@ -158,7 +158,7 @@ def generate_quiz(
     user_prompt = QUIZ_USER_PROMPT.format(
         context=context_data["context"],
         topic=target_topic,
-        num_questions=min(num_questions, 8)
+        num_questions=min(num_questions, 20)
     )
 
     client = get_ollama_client()

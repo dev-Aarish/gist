@@ -1,4 +1,4 @@
-import { BookOpen, MessageSquare, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react'
+import { BookOpen, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react'
 import { NAV_ITEMS, type ScreenId } from '../lib/nav'
 import { pluralize } from '../lib/format'
 import type { DocumentInfo } from '../lib/types'
@@ -145,10 +145,13 @@ export function Sidebar({
                       }}
                       title={session.title}
                     >
-                      <MessageSquare size={13} strokeWidth={1.5} className="side__session-icon" />
                       {!collapsed ? (
                         <span className="side__session-title">{session.title}</span>
-                      ) : null}
+                      ) : (
+                        <span className="side__session-badge">
+                          {(session.title.trim()[0] || 'C').toUpperCase()}
+                        </span>
+                      )}
                     </button>
                     {!collapsed && onDeleteSession ? (
                       <button
@@ -219,7 +222,7 @@ export function Sidebar({
         </div>
 
         <div className="side__foot">
-          <ThemeToggle preference={preference} onSelect={onSelectTheme} />
+          <ThemeToggle preference={preference} onSelect={onSelectTheme} collapsed={collapsed} />
           {!collapsed ? (
             <>
               <span className="badge">

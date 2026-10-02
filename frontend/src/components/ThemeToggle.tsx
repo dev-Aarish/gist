@@ -10,10 +10,32 @@ const OPTIONS: { value: ThemePreference; label: string; Icon: typeof Sun }[] = [
 export function ThemeToggle({
   preference,
   onSelect,
+  collapsed = false,
 }: {
   preference: ThemePreference
   onSelect: (next: ThemePreference) => void
+  collapsed?: boolean
 }) {
+  if (collapsed) {
+    const nextTheme: ThemePreference =
+      preference === 'system' ? 'light' : preference === 'light' ? 'dark' : 'system'
+    const currentOption = OPTIONS.find((o) => o.value === preference) || OPTIONS[0]
+    const CurrentIcon = currentOption.Icon
+
+    return (
+      <button
+        type="button"
+        className="side__toggle-btn"
+        aria-label={`Current theme: ${currentOption.label}. Click to switch theme.`}
+        title={`${currentOption.label} (click to switch)`}
+        onClick={() => onSelect(nextTheme)}
+        style={{ margin: '0 auto' }}
+      >
+        <CurrentIcon size={16} strokeWidth={1.5} aria-hidden="true" />
+      </button>
+    )
+  }
+
   return (
     <div className="seg" role="group" aria-label="Colour theme">
       {OPTIONS.map(({ value, label, Icon }) => (
