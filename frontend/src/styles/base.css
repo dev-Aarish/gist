@@ -1,0 +1,249 @@
+/* ==========================================================================
+   Gist — base layer: reset, typography, focus, theme transition
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 24px;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Theme changes cross-fade instead of flashing. */
+  transition: background-color var(--dur-theme) var(--ease-standard),
+    color var(--dur-theme) var(--ease-standard);
+}
+
+/* Kill the transition until the first frame is painted, so a saved theme
+   never visibly animates in on load. */
+html[data-first-paint] body {
+  transition: none;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 400;
+  line-height: 1.28;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+/* --- Focus ---------------------------------------------------------------- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* --- Typography roles ----------------------------------------------------- */
+.t-display {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 5vw, 36px);
+  line-height: 44px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.t-h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.t-h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 400;
+}
+
+.t-h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 500;
+}
+
+.t-body {
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.t-small {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.t-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.t-data {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.t-data-lg {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.t-italic {
+  font-style: italic;
+}
+
+.t-muted {
+  color: var(--text-muted);
+}
+
+.t-faint {
+  color: var(--text-faint);
+}
+
+/* Long-form answer text stays inside a comfortable measure. */
+.prose {
+  max-width: 66ch;
+}
+
+.prose p + p {
+  margin-top: var(--space-3);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.25em;
+  margin-top: var(--space-2);
+}
+
+.prose li + li {
+  margin-top: var(--space-1);
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: currentColor;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.prose blockquote {
+  padding-left: var(--space-3);
+  border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
+  margin: var(--space-2) 0;
+  color: color-mix(in srgb, currentColor 85%, transparent);
+}
+
+/* --- Screen-reader only --------------------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Scrollbars (quiet, matches the ink rules) ---------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-soft) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: var(--radius-pill);
+  border: 3px solid var(--bg);
+}
+
+/* --- Reduced motion ------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-hover: 0ms;
+    --dur-panel: 0ms;
+    --dur-theme: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,118 @@
+/* ==========================================================================
+   Gist — design tokens
+   Single source of truth for both themes. Components never hardcode colour.
+   ========================================================================== */
+
+:root {
+  /* --- Typefaces (bundled locally via Fontsource, works offline) ---------- */
+  --font-display: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* --- Spacing scale ------------------------------------------------------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* --- Radius (rounded corners for a soft, friendly, modern UI) ------------ */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* --- Motion ------------------------------------------------------------- */
+  /* Strong curves: built-in CSS easings are too weak to read as intentional. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-hover: 120ms;
+  --dur-panel: 200ms;
+  --dur-theme: 150ms;
+
+  /* --- Layout ------------------------------------------------------------- */
+  --content-max: 760px;
+  --content-wide: 1040px;
+  --sidebar-w: 240px;
+}
+
+/* ============================== LIGHT (cream) ============================= */
+:root,
+:root[data-theme='light'] {
+  --bg: #f4f1ea;
+  --surface: #faf8f3;
+  --surface-2: #ece8df;
+  --border: #1c2b33;
+  --border-soft: #d9d4c8;
+  --text: #1c2b33;
+  --text-muted: #5e6b73;
+  --text-faint: #8a9399;
+  --accent: #1f4e5f;
+  --on-accent: #f4f1ea;
+
+  --success: #276b4b;
+  --success-bg: #dde9dd;
+  --warning: #8a5a12;
+  --warning-bg: #f0e3c6;
+  --danger: #9b2f2f;
+  --danger-bg: #f1d9d4;
+
+  --bubble-assistant-bg: #faf8f3;
+  --bubble-assistant-text: #1c2b33;
+  --bubble-user-bg: #ece8df;
+  --bubble-user-text: #1c2b33;
+
+  /* Topic tiles — muted, desaturated "index card" tones. Deliberately no
+     lime, lavender or sky: the brief calls for calm over punchy. */
+  --tile-clay: #d8a488;
+  --tile-sage: #b4c2a4;
+  --tile-sand: #e2cea2;
+  --tile-slate: #a3b4c2;
+  --tile-rose: #d9b0ac;
+  --tile-teal: #9cbcb4;
+
+  --hatch: rgba(28, 43, 51, 0.14);
+  --scrim: rgba(28, 43, 51, 0.5);
+}
+
+/* =============================== DARK (ink) ============================== */
+:root[data-theme='dark'] {
+  --bg: #0f1011;
+  --surface: #161718;
+  --surface-2: #1d1e20;
+  --border: #2c2e31;
+  --border-soft: #232426;
+  --text: #e8e6e1;
+  --text-muted: #8d9093;
+  --text-faint: #888c90;
+  --accent: #b9d3cc;
+  --on-accent: #0f1011;
+
+  --success: #4cc38a;
+  --success-bg: #16261e;
+  --warning: #e0b04e;
+  --warning-bg: #2a2314;
+  --danger: #e5675f;
+  --danger-bg: #2a1716;
+
+  --bubble-assistant-bg: #d5dcd9;
+  --bubble-assistant-text: #16191a;
+  --bubble-user-bg: #222426;
+  --bubble-user-text: #e8e6e1;
+
+  --tile-clay: #4a3225;
+  --tile-sage: #37402e;
+  --tile-sand: #4a4127;
+  --tile-slate: #2d3944;
+  --tile-rose: #4c3230;
+  --tile-teal: #2c4441;
+
+  --hatch: rgba(232, 230, 225, 0.16);
+  --scrim: rgba(0, 0, 0, 0.62);
+}
