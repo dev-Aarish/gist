@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import {
   Github,
   ArrowRight,
-  Zap,
+  Terminal,
   HardDrive,
   FileCheck,
   Lock,
@@ -24,13 +24,11 @@ import { LandingFooter } from '../components/landing/LandingFooter'
 interface LandingScreenProps {
   preference: ThemePreference
   onSelectTheme: (next: ThemePreference) => void
-  onLaunchApp: () => void
 }
 
 export function LandingScreen({
   preference,
   onSelectTheme,
-  onLaunchApp,
 }: LandingScreenProps) {
   // Rotating headline word
   const words = ['exams.', 'finals.', 'lecture notes.', 'syllabi.', 'midterms.']
@@ -52,7 +50,6 @@ export function LandingScreen({
       <LandingNav
         preference={preference}
         onSelectTheme={onSelectTheme}
-        onLaunchApp={onLaunchApp}
       />
 
       <main className="landing-main-content">
@@ -134,16 +131,25 @@ export function LandingScreen({
                   <ArrowRight size={15} strokeWidth={2} />
                 </motion.a>
 
-                <motion.button
-                  type="button"
+                <motion.a
+                  href="#quickstart"
                   whileHover={{ transform: 'translateY(-2px)' }}
                   whileTap={{ transform: 'scale(0.98)' }}
                   className="hero-secondary-cta"
-                  onClick={onLaunchApp}
+                  style={{ textDecoration: 'none' }}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    const elem = document.getElementById('quickstart')
+                    if (!elem) return
+                    const headerOffset = 88
+                    const elementPosition = elem.getBoundingClientRect().top
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset
+                    window.scrollTo({ top: offsetPosition, behavior: 'smooth' })
+                  }}
                 >
-                  <Zap size={16} className="text-accent" />
-                  <span>Launch Study Workspace</span>
-                </motion.button>
+                  <Terminal size={16} className="text-accent" />
+                  <span>Quickstart Guide</span>
+                </motion.a>
               </motion.div>
 
               {/* Trust Metrics Pill Row */}
@@ -337,23 +343,13 @@ export function LandingScreen({
                 <Github size={17} />
                 <span>Star & Clone on GitHub</span>
               </motion.a>
-              <motion.button
-                type="button"
-                whileHover={{ transform: 'translateY(-2px)' }}
-                whileTap={{ transform: 'scale(0.98)' }}
-                className="banner-secondary-btn"
-                onClick={onLaunchApp}
-              >
-                <span>Open Live Workspace</span>
-                <ArrowRight size={14} />
-              </motion.button>
             </div>
           </motion.div>
         </section>
       </main>
 
       {/* FOOTER */}
-      <LandingFooter onLaunchApp={onLaunchApp} />
+      <LandingFooter />
     </div>
   )
 }

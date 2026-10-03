@@ -11,20 +11,36 @@ import { ProgressScreen } from './screens/ProgressScreen'
 import { QuizScreen, type QuizIntent } from './screens/QuizScreen'
 import { LandingScreen } from './screens/LandingScreen'
 
-export default function App() {
-  const [screen, setScreen] = useState<ScreenId>(() => {
-    try {
-      const hash = window.location.hash.replace(/^#\/?/, '')
-      if (hash === 'ask' || hash === 'quiz' || hash === 'progress' || hash === 'notes') {
+function getScreenFromLocation(): ScreenId {
+  try {
+    const pathname = window.location.pathname.replace(/\/+$/, '')
+    const hash = window.location.hash.replace(/^#\/?/, '')
+
+    // Check if on /ai route
+    if (pathname === '/ai' || pathname.startsWith('/ai/')) {
+      const subPath = pathname.replace(/^\/ai\/?/, '')
+      if (subPath === 'quiz' || subPath === 'progress' || subPath === 'notes' || subPath === 'ask') {
+        return subPath as ScreenId
+      }
+      if (hash === 'quiz' || hash === 'progress' || hash === 'notes' || hash === 'ask') {
         return hash as ScreenId
       }
-      if (hash === 'landing') return 'landing'
-      // If user previously opened the app, or default to landing
-      return 'landing'
-    } catch {
-      return 'landing'
+      return 'ask'
     }
-  })
+
+    // Check hash for legacy/direct links
+    if (hash === 'ask' || hash === 'quiz' || hash === 'progress' || hash === 'notes') {
+      return hash as ScreenId
+    }
+
+    return 'landing'
+  } catch {
+    return 'landing'
+  }
+}
+
+export default function App() {
+  const [screen, setScreen] = useState<ScreenId>(getScreenFromLocation)
 
   const [quizIntent, setQuizIntent] = useState<QuizIntent | null>(null)
 
@@ -73,30 +89,49 @@ export default function App() {
   useEffect(() => {
     if (screen === 'landing') {
       document.title = 'Gist — Private, Offline Exam Study Companion'
-      window.location.hash = 'landing'
+      if (window.location.pathname === '/ai') {
+        window.history.replaceState(null, '', '/')
+      }
     } else {
       const item = NAV_ITEMS.find((entry) => entry.id === screen)
       document.title = item ? `${item.label} · Gist` : 'Gist'
-      window.location.hash = screen
+      if (window.location.pathname !== '/ai') {
+        window.history.replaceState(null, '', `/ai#${screen}`)
+      } else if (window.location.hash.replace(/^#\/?/, '') !== screen) {
+        window.location.hash = screen
+      }
     }
   }, [screen])
 
-  // Listen to hash changes for browser forward/backward navigation
+  // Listen to popstate and hash changes for browser forward/backward navigation
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '')
-      if (hash === 'ask' || hash === 'quiz' || hash === 'progress' || hash === 'notes' || hash === 'landing') {
-        setScreen(hash as ScreenId)
-      }
+    const handleUrlChange = () => {
+      setScreen(getScreenFromLocation())
     }
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
+    window.addEventListener('popstate', handleUrlChange)
+    window.addEventListener('hashchange', handleUrlChange)
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange)
+      window.removeEventListener('hashchange', handleUrlChange)
+    }
   }, [])
 
   function navigate(next: ScreenId) {
     // Any manual navigation clears a pending "quiz my weak spots" request.
     if (next !== 'quiz') setQuizIntent(null)
     setScreen(next)
+    if (next === 'landing') {
+      if (window.location.pathname !== '/') {
+        window.history.pushState(null, '', '/')
+      } else {
+        window.location.hash = ''
+      }
+    } else {
+      const targetUrl = `/ai#${next}`
+      if (window.location.pathname !== '/ai' || window.location.hash !== `#${next}`) {
+        window.history.pushState(null, '', targetUrl)
+      }
+    }
   }
 
   if (screen === 'landing') {
@@ -104,7 +139,6 @@ export default function App() {
       <LandingScreen
         preference={preference}
         onSelectTheme={setPreference}
-        onLaunchApp={() => navigate('ask')}
       />
     )
   }

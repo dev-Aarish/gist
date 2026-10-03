@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Github, Sun, Moon, ArrowRight } from 'lucide-react'
+import { Github, Sun, Moon } from 'lucide-react'
 import type { ThemePreference } from '../../hooks/useTheme'
 
 interface LandingNavProps {
   preference: ThemePreference
   onSelectTheme: (next: ThemePreference) => void
-  onLaunchApp: () => void
 }
 
-export function LandingNav({ preference, onSelectTheme, onLaunchApp }: LandingNavProps) {
+export function LandingNav({ preference, onSelectTheme }: LandingNavProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   const navLinks = [
@@ -74,7 +73,6 @@ export function LandingNav({ preference, onSelectTheme, onLaunchApp }: LandingNa
             }}
           >
             <span className="landing-logo-serif">Gist</span>
-            <span className="landing-logo-badge">v1.0</span>
           </a>
 
           <div className="landing-status-pill" title="All processing happens on your local hardware">
@@ -144,18 +142,6 @@ export function LandingNav({ preference, onSelectTheme, onLaunchApp }: LandingNa
             <Github size={15} strokeWidth={1.75} />
             <span>GitHub</span>
           </motion.a>
-
-          {/* Launch App */}
-          <motion.button
-            type="button"
-            whileHover={{ transform: 'translateY(-1px)' }}
-            whileTap={{ transform: 'scale(0.98)' }}
-            className="landing-launch-btn"
-            onClick={onLaunchApp}
-          >
-            <span>Launch App</span>
-            <ArrowRight size={14} strokeWidth={2} />
-          </motion.button>
         </div>
       </div>
     </header>

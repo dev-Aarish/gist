@@ -1,10 +1,6 @@
-import { ArrowUp, Shield } from 'lucide-react'
+import { ArrowUp, Shield, Github } from 'lucide-react'
 
-interface LandingFooterProps {
-  onLaunchApp: () => void
-}
-
-export function LandingFooter({ onLaunchApp }: LandingFooterProps) {
+export function LandingFooter() {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -61,13 +57,16 @@ export function LandingFooter({ onLaunchApp }: LandingFooterProps) {
           </div>
 
           <div className="footer-action-col">
-            <button
-              type="button"
+            <a
+              href="https://github.com/dev-Aarish/gist"
+              target="_blank"
+              rel="noopener noreferrer"
               className="footer-launch-btn"
-              onClick={onLaunchApp}
+              style={{ textDecoration: 'none', gap: '8px' }}
             >
-              <span>Launch Study Workspace</span>
-            </button>
+              <Github size={15} />
+              <span>Star on GitHub</span>
+            </a>
             <button
               type="button"
               className="footer-top-btn"
