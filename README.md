@@ -1,4 +1,4 @@
-# Gist (Exam Buddy)
+# Gist
 
 Gist is an offline, privacy-first AI study partner powered by local large language models (LLMs) via Ollama, FastAPI, and React. It transforms course documents into an interactive, locally hosted learning environment with grounded Q&A, source citations, adaptive quizzes, and longitudinal mastery tracking.
 
