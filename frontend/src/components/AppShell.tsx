@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import type { ThemePreference } from '../hooks/useTheme'
-import type { DocumentInfo } from '../lib/types'
+import type { DocumentInfo, ModelInfo } from '../lib/types'
 import type { ScreenId } from '../lib/nav'
 import type { ChatSession } from '../hooks/useChatSessions'
 import { Sidebar } from './Sidebar'
@@ -16,6 +16,10 @@ export function AppShell({
   documents,
   weakSpots,
   model,
+  models,
+  switchingModel,
+  modelsError,
+  onSelectModel,
   offline,
   sessions,
   activeSessionId,
@@ -31,6 +35,10 @@ export function AppShell({
   documents: DocumentInfo[]
   weakSpots: number
   model: string | null
+  models: ModelInfo[]
+  switchingModel: boolean
+  modelsError: string | null
+  onSelectModel: (model: string) => void
   offline: boolean
   sessions?: ChatSession[]
   activeSessionId?: string | null
@@ -67,6 +75,10 @@ export function AppShell({
         documents={documents}
         weakSpots={weakSpots}
         model={model}
+        models={models}
+        switchingModel={switchingModel}
+        modelsError={modelsError}
+        onSelectModel={onSelectModel}
         offline={offline}
         sessions={sessions}
         activeSessionId={activeSessionId}

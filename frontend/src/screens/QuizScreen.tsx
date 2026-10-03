@@ -303,7 +303,7 @@ export function QuizScreen({
                     value={count}
                     onChange={(e) => setCount(Number(e.target.value))}
                     aria-labelledby="count-label"
-                    style={{ width: '120px', accentColor: 'var(--blue)', cursor: 'pointer' }}
+                    style={{ width: '120px', accentColor: 'var(--accent)', cursor: 'pointer' }}
                   />
                   <span className="tabular" style={{ fontWeight: 500, fontSize: '15px', minWidth: '20px' }}>
                     {count}

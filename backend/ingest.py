@@ -21,6 +21,69 @@ def get_ollama_client() -> ollama.Client:
     return ollama.Client(host=settings.ollama_host)
 
 
+def _model_name(entry: Any) -> str:
+    """Read a model identifier from either a dict or an Ollama ListResponse item."""
+    if isinstance(entry, dict):
+        return str(entry.get("model") or entry.get("name") or "")
+    return str(getattr(entry, "model", "") or getattr(entry, "name", "") or "")
+
+
+def list_installed_models() -> List[Dict[str, Any]]:
+    """List models pulled into the local Ollama runtime, with size and family.
+
+    Embedding-only models are excluded: they can't answer questions, so
+    offering them as a chat model would just produce broken responses.
+    """
+    client = get_ollama_client()
+    raw = client.list()
+    models = getattr(raw, "models", None)
+    if models is None:
+        models = raw.get("models", []) if isinstance(raw, dict) else []
+
+    installed: List[Dict[str, Any]] = []
+    for entry in models:
+        name = _model_name(entry)
+        if not name:
+            continue
+        size = entry.get("size") if isinstance(entry, dict) else getattr(entry, "size", None)
+        details = entry.get("details") if isinstance(entry, dict) else getattr(entry, "details", None)
+        family = None
+        if details is not None:
+            family = (
+                details.get("family")
+                if isinstance(details, dict)
+                else getattr(details, "family", None)
+            )
+        if family and "bert" in str(family).lower():
+            # nomic-embed-text and friends are embedding models, not chat models.
+            continue
+        installed.append({
+            "name": name,
+            "size_bytes": int(size) if isinstance(size, (int, float)) else None,
+            "family": family,
+        })
+
+    installed.sort(key=lambda m: m["name"])
+    return installed
+
+
+def resolve_installed_model(requested: str) -> Optional[str]:
+    """Match a requested model against what's installed, tolerating tags.
+
+    Ollama treats `qwen2.5:7b` and `qwen2.5:7b-instruct` as different tags, so
+    an exact match is tried first, then the same base name with any tag.
+    """
+    exact = requested.strip()
+    installed = [m["name"] for m in list_installed_models()]
+    if exact in installed:
+        return exact
+    base = exact.split(":", 1)[0]
+    for name in installed:
+        if name == base or name.startswith(f"{base}:"):
+            return name
+    return None
+
+
 def get_collection() -> chromadb.Collection:
     """Get or create the default ChromaDB collection."""
     return chroma_client.get_or_create_collection(

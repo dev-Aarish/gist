@@ -1,9 +1,10 @@
 import { BookOpen, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react'
 import { NAV_ITEMS, type ScreenId } from '../lib/nav'
 import { pluralize } from '../lib/format'
-import type { DocumentInfo } from '../lib/types'
+import type { DocumentInfo, ModelInfo } from '../lib/types'
 import type { ThemePreference } from '../hooks/useTheme'
 import type { ChatSession } from '../hooks/useChatSessions'
+import { ModelPicker } from './ModelPicker'
 import { ThemeToggle } from './ThemeToggle'
 
 export function Sidebar({
@@ -14,6 +15,10 @@ export function Sidebar({
   documents,
   weakSpots,
   model,
+  models,
+  switchingModel,
+  modelsError,
+  onSelectModel,
   offline,
   sessions,
   activeSessionId,
@@ -30,6 +35,10 @@ export function Sidebar({
   documents: DocumentInfo[]
   weakSpots: number
   model: string | null
+  models: ModelInfo[]
+  switchingModel: boolean
+  modelsError: string | null
+  onSelectModel: (model: string) => void
   offline: boolean
   sessions?: ChatSession[]
   activeSessionId?: string | null
@@ -229,7 +238,14 @@ export function Sidebar({
                 <span className="badge__dot" aria-hidden="true" />
                 Runs locally
               </span>
-              {model ? <span className="model-badge">{model}</span> : null}
+              <ModelPicker
+                models={models}
+                active={model}
+                switching={switchingModel}
+                error={modelsError}
+                onSelect={onSelectModel}
+                disabled={offline}
+              />
             </>
           ) : null}
         </div>

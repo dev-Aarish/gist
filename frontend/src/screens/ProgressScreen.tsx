@@ -5,7 +5,7 @@ import type { ScreenId } from '../lib/nav'
 import { BackendNotice } from '../components/BackendNotice'
 import { EmptyState } from '../components/EmptyState'
 import { MasteryBar } from '../components/MasteryBar'
-import { TopicTile } from '../components/TopicTile'
+import { TopicTile, type TileStatus } from '../components/TopicTile'
 
 function weakestFirst(topics: TopicStat[]): TopicStat[] {
   return [...topics].sort((a, b) => {
@@ -16,15 +16,16 @@ function weakestFirst(topics: TopicStat[]): TopicStat[] {
   })
 }
 
-function statusMeta(stat: TopicStat): string {
-  if (stat.status === 'Unattempted') return 'Not attempted'
-  const label =
-    stat.status === 'Weak Spot'
-      ? 'Weak'
-      : stat.status === 'Needs Review'
-        ? 'Review'
-        : 'Mastered'
-  return `${stat.total_questions} ${pluralize(stat.total_questions, 'question')} · ${label}`
+function tileMeta(stat: TopicStat): string {
+  if (stat.status === 'Unattempted' || stat.total_questions === 0) return 'No quiz yet'
+  return `${stat.total_questions} ${pluralize(stat.total_questions, 'question')}`
+}
+
+function tileStatus(status: TopicStat['status']): TileStatus {
+  if (status === 'Mastered') return 'mastered'
+  if (status === 'Needs Review') return 'review'
+  if (status === 'Weak Spot') return 'weak'
+  return 'unattempted'
 }
 
 export function ProgressScreen({
@@ -143,7 +144,9 @@ export function ProgressScreen({
               <TopicTile
                 key={stat.topic}
                 title={stat.topic}
-                meta={statusMeta(stat)}
+                meta={tileMeta(stat)}
+                accuracy={stat.accuracy}
+                status={tileStatus(stat.status)}
                 index={index}
                 onClick={() => onStartTopicQuiz(stat.topic)}
               />

@@ -1,6 +1,10 @@
 /* ==========================================================================
    Gist — design tokens
    Single source of truth for both themes. Components never hardcode colour.
+
+   Palette direction: the analog study desk — cream paper, warm sepia ink,
+   colored index-card tabs, book-cloth and highlighter hues. Colour is warm
+   and earthy (clay, ochre, moss, fern, petrol-teal); no purple, cyan or lime.
    ========================================================================== */
 
 :root {
@@ -42,77 +46,77 @@
   --sidebar-w: 240px;
 }
 
-/* ============================== LIGHT (cream) ============================= */
+/* ============================== LIGHT (daylight desk) ==================== */
 :root,
 :root[data-theme='light'] {
-  --bg: #f4f1ea;
-  --surface: #faf8f3;
-  --surface-2: #ece8df;
-  --border: #1c2b33;
-  --border-soft: #d9d4c8;
-  --text: #1c2b33;
-  --text-muted: #5e6b73;
-  --text-faint: #8a9399;
-  --accent: #1f4e5f;
-  --on-accent: #f4f1ea;
+  --bg: #f5efe2;
+  --surface: #fdfaf2;
+  --surface-2: #ece2cf;
+  --border: #2a332e;
+  --border-soft: #ddd2bd;
+  --text: #2a332e;
+  --text-muted: #5c6659;
+  --text-faint: #8b9186;
+  --accent: #0f5c52;
+  --on-accent: #f7f2e6;
 
-  --success: #276b4b;
-  --success-bg: #dde9dd;
+  --success: #2f7a52;
+  --success-bg: #dcebdd;
   --warning: #8a5a12;
-  --warning-bg: #f0e3c6;
-  --danger: #9b2f2f;
-  --danger-bg: #f1d9d4;
+  --warning-bg: #f3e3c2;
+  --danger: #a83232;
+  --danger-bg: #f3ddd6;
 
-  --bubble-assistant-bg: #faf8f3;
-  --bubble-assistant-text: #1c2b33;
-  --bubble-user-bg: #ece8df;
-  --bubble-user-text: #1c2b33;
+  --bubble-assistant-bg: #fdfaf2;
+  --bubble-assistant-text: #2a332e;
+  --bubble-user-bg: #dfeae3;
+  --bubble-user-text: #1e3b34;
 
-  /* Topic tiles — muted, desaturated "index card" tones. Deliberately no
-     lime, lavender or sky: the brief calls for calm over punchy. */
-  --tile-clay: #d8a488;
-  --tile-sage: #b4c2a4;
-  --tile-sand: #e2cea2;
-  --tile-slate: #a3b4c2;
-  --tile-rose: #d9b0ac;
-  --tile-teal: #9cbcb4;
+  /* Topic tiles — saturated stationery hues, assigned per topic by index.
+     Warm earth and moss/teal only: deliberately no purple, cyan or lime. */
+  --tile-clay: #d98a5e;
+  --tile-ochre: #dcae4a;
+  --tile-moss: #86a052;
+  --tile-fern: #6f9c78;
+  --tile-rose: #d79590;
+  --tile-teal: #5c9d94;
 
-  --hatch: rgba(28, 43, 51, 0.14);
-  --scrim: rgba(28, 43, 51, 0.5);
+  --hatch: rgba(42, 51, 46, 0.16);
+  --scrim: rgba(42, 51, 46, 0.5);
 }
 
-/* =============================== DARK (ink) ============================== */
+/* =============================== DARK (lamplight ink) ==================== */
 :root[data-theme='dark'] {
-  --bg: #0f1011;
-  --surface: #161718;
-  --surface-2: #1d1e20;
-  --border: #2c2e31;
-  --border-soft: #232426;
-  --text: #e8e6e1;
-  --text-muted: #8d9093;
-  --text-faint: #888c90;
-  --accent: #b9d3cc;
-  --on-accent: #0f1011;
+  --bg: #14110d;
+  --surface: #1c1813;
+  --surface-2: #262019;
+  --border: #382f26;
+  --border-soft: #2a241d;
+  --text: #efe8db;
+  --text-muted: #9d968a;
+  --text-faint: #6d675e;
+  --accent: #7ec9b4;
+  --on-accent: #14110d;
 
-  --success: #4cc38a;
-  --success-bg: #16261e;
-  --warning: #e0b04e;
-  --warning-bg: #2a2314;
-  --danger: #e5675f;
-  --danger-bg: #2a1716;
+  --success: #57c98d;
+  --success-bg: #18301f;
+  --warning: #e3b154;
+  --warning-bg: #2e2513;
+  --danger: #ec7263;
+  --danger-bg: #331b17;
 
-  --bubble-assistant-bg: #d5dcd9;
-  --bubble-assistant-text: #16191a;
-  --bubble-user-bg: #222426;
-  --bubble-user-text: #e8e6e1;
+  --bubble-assistant-bg: #d9e3dc;
+  --bubble-assistant-text: #17201c;
+  --bubble-user-bg: #1c3a34;
+  --bubble-user-text: #d9eae2;
 
-  --tile-clay: #4a3225;
-  --tile-sage: #37402e;
-  --tile-sand: #4a4127;
-  --tile-slate: #2d3944;
-  --tile-rose: #4c3230;
-  --tile-teal: #2c4441;
+  --tile-clay: #5c3624;
+  --tile-ochre: #4f3d18;
+  --tile-moss: #3b4722;
+  --tile-fern: #28402e;
+  --tile-rose: #4d2b2b;
+  --tile-teal: #1d4741;
 
-  --hatch: rgba(232, 230, 225, 0.16);
+  --hatch: rgba(239, 232, 219, 0.16);
   --scrim: rgba(0, 0, 0, 0.62);
 }

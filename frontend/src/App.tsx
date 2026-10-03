@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
 import { useDocuments, useHealth, useProgress } from './hooks/useApiData'
+import { useModels } from './hooks/useModels'
 import { useTheme } from './hooks/useTheme'
 import { useChatSessions } from './hooks/useChatSessions'
 import { NAV_ITEMS, type ScreenId } from './lib/nav'
@@ -31,6 +32,13 @@ export default function App() {
     refresh: refreshDocuments,
   } = useDocuments()
   const { health, refresh: refreshHealth } = useHealth()
+  const {
+    models,
+    active: activeModel,
+    switching: switchingModel,
+    error: modelsError,
+    choose: chooseModel,
+  } = useModels(refreshHealth)
   const {
     progress,
     loading: progressLoading,
@@ -67,7 +75,11 @@ export default function App() {
       onSelectTheme={setPreference}
       documents={documents}
       weakSpots={progress?.weak_spots_count ?? 0}
-      model={health?.active_llm ?? null}
+      model={activeModel ?? health?.active_llm ?? null}
+      models={models}
+      switchingModel={switchingModel}
+      modelsError={modelsError}
+      onSelectModel={chooseModel}
       offline={offline}
       sessions={sessions}
       activeSessionId={activeSessionId}
@@ -78,7 +90,7 @@ export default function App() {
       {screen === 'ask' ? (
         <AskScreen
           documents={documents}
-          model={health?.active_llm ?? null}
+          model={activeModel ?? health?.active_llm ?? null}
           offline={offline}
           offlineMessage={backendError}
           onRetry={retryBackend}

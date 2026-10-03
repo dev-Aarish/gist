@@ -16,6 +16,21 @@ function generateSessionId(): string {
   return `sess-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 }
 
+/**
+ * Streaming is transient UI state, but it can slip into localStorage when a
+ * session is saved mid-answer (reload or close while the model is replying).
+ * Rehydrate turns with it cleared, and drop assistant turns that were saved
+ * empty because the stream was interrupted, so old answers never keep a
+ * blinking caret or an endless "Reading your notes" label.
+ */
+function reviveTurns(turns: ChatTurn[]): ChatTurn[] {
+  return turns
+    .filter(
+      (turn) => !(turn.role === 'assistant' && turn.streaming && !turn.text && !turn.error)
+    )
+    .map((turn) => (turn.streaming ? { ...turn, streaming: false } : turn))
+}
+
 export function deriveTitle(question: string): string {
   if (!question || !question.trim()) return 'New question'
 
@@ -95,7 +110,12 @@ export function useChatSessions() {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as ChatSession[]
-        if (Array.isArray(parsed)) return parsed
+        if (Array.isArray(parsed)) {
+          return parsed.map((session) => ({
+            ...session,
+            turns: reviveTurns(session.turns ?? []),
+          }))
+        }
       }
     } catch {
       // ignore
@@ -115,10 +135,14 @@ export function useChatSessions() {
     }
   }, [])
 
-  // Sync sessions to localStorage
+  // Sync sessions to localStorage, without persisting the transient flag.
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+      const persisted = sessions.map((session) => ({
+        ...session,
+        turns: reviveTurns(session.turns),
+      }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted))
     } catch {
       // ignore
     }

@@ -8,14 +8,16 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from backend.config import settings
+from backend.config import settings, persist_selected_model
 from backend.ingest import (
     ingest_pdf,
     list_indexed_documents,
     delete_document,
     delete_subject,
     reset_index,
-    get_ollama_client
+    get_ollama_client,
+    list_installed_models,
+    resolve_installed_model
 )
 from backend.rag import ask_question, AskResponse, stream_ask_question
 from backend.quiz import (
@@ -90,6 +92,22 @@ class UploadResponse(BaseModel):
     results: List[dict]
     total_files: int
     message: str
+
+
+class ModelInfo(BaseModel):
+    name: str
+    size_bytes: Optional[int] = None
+    family: Optional[str] = None
+
+
+class ModelsResponse(BaseModel):
+    models: List[ModelInfo]
+    active_model: str
+    fallback_model: str
+
+
+class SelectModelRequest(BaseModel):
+    model: str
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -255,6 +273,53 @@ def warmup_endpoint():
     """Trigger background model warm-up on demand."""
     threading.Thread(target=warmup_models, daemon=True).start()
     return {"status": "started", "message": f"Pre-loading {settings.llm_model} into memory."}
+
+
+@app.get("/models", response_model=ModelsResponse)
+def get_models():
+    """List the chat models installed in Ollama and which one is active."""
+    try:
+        models = list_installed_models()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not reach Ollama: {str(e)}")
+
+    return ModelsResponse(
+        models=[ModelInfo(**m) for m in models],
+        active_model=settings.llm_model,
+        fallback_model=settings.fallback_model
+    )
+
+
+@app.post("/models/select", response_model=ModelsResponse)
+def select_model(request: SelectModelRequest):
+    """Switch the active model to an installed Ollama model and persist the choice."""
+    requested = request.model.strip()
+    if not requested:
+        raise HTTPException(status_code=400, detail="Model name cannot be empty.")
+
+    try:
+        resolved = resolve_installed_model(requested)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not reach Ollama: {str(e)}")
+
+    if not resolved:
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{requested}' is not installed in Ollama. Pull it first, then select it."
+        )
+
+    settings.llm_model = resolved
+    persist_selected_model(resolved)
+
+    # Pre-load the new model so the first question isn't slow.
+    threading.Thread(target=warmup_models, daemon=True).start()
+
+    models = list_installed_models()
+    return ModelsResponse(
+        models=[ModelInfo(**m) for m in models],
+        active_model=settings.llm_model,
+        fallback_model=settings.fallback_model
+    )
 
 
 
