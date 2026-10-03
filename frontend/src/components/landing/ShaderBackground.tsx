@@ -36,18 +36,19 @@ export function ShaderBackground({ theme }: { theme?: string }) {
     }
   }, [theme])
 
-  // Warm study palette: No purple, cyan or neon lime
-  // Rich warm clay, gold ochre, petrol-teal on warm cream/dark canvas
+  // Light palette: Warm analog study desk stationery
   const lightColors = [
     'hsl(18, 90%, 58%)',   // Warm Clay Terracotta
     'hsl(42, 94%, 53%)',   // Golden Ochre
-    'hsl(172, 82%, 27%)',  // Petrol-Teal
+    'hsl(350, 75%, 65%)',  // Soft Rose
   ]
 
+  // Dark palette matching 21st.dev Paper Design GrainGradient reference:
+  // Pure black canvas with outer Sunset Crimson glow blending through Warm Sunset Flame into Radiant Golden Amber
   const darkColors = [
-    'hsl(18, 94%, 58%)',   // Luminous Terracotta Embers
-    'hsl(40, 96%, 52%)',   // Radiant Golden Amber
-    'hsl(165, 75%, 38%)',  // Glowing Emerald Sage
+    '#d83a56',  // Sunset Crimson / Rose Ruby (outer glow)
+    '#ea580c',  // Warm Sunset Flame (intermediate transition)
+    '#f59e0b',  // Radiant Golden Amber (luminous core)
   ]
 
   return (
@@ -68,25 +69,25 @@ export function ShaderBackground({ theme }: { theme?: string }) {
       <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         <GrainGradient
           style={{ width: '100vw', height: '100vh', display: 'block' }}
-          colorBack={isDark ? 'hsl(24, 25%, 10%)' : 'hsl(38, 44%, 94%)'}
-          softness={0.76}
-          intensity={isDark ? 0.82 : 0.55}
-          noise={0}
+          colorBack={isDark ? '#000000' : 'hsl(38, 44%, 94%)'}
+          softness={isDark ? 0.68 : 0.76}
+          intensity={isDark ? 0.88 : 0.55}
+          noise={isDark ? 0.35 : 0.15}
           shape="corners"
           offsetX={0}
           offsetY={0}
           scale={1.2}
           rotation={0}
-          speed={reducedMotion ? 0 : 1.0}
+          speed={reducedMotion ? 0 : 0.85}
           colors={isDark ? darkColors : lightColors}
         />
       </div>
 
-      {/* 2. Fluid Ambient Liquid Glow Orbs (Guaranteed continuous organic motion) */}
+      {/* 2. Fluid Ambient Liquid Glow Orbs (Continuous organic motion in sunset crimson & amber) */}
       <div className="landing-ambient-orbs">
-        <div className={`ambient-orb orb-clay ${isDark ? 'dark' : ''}`} />
-        <div className={`ambient-orb orb-ochre ${isDark ? 'dark' : ''}`} />
-        <div className={`ambient-orb orb-teal ${isDark ? 'dark' : ''}`} />
+        <div className={`ambient-orb orb-crimson ${isDark ? 'dark' : ''}`} />
+        <div className={`ambient-orb orb-amber ${isDark ? 'dark' : ''}`} />
+        <div className={`ambient-orb orb-rose ${isDark ? 'dark' : ''}`} />
       </div>
 
       {/* 3. Subtle Frosted Glass & Paper Vignette Overlay */}

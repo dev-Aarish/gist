@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Github, Sun, Moon } from 'lucide-react'
 import type { ThemePreference } from '../../hooks/useTheme'
@@ -10,6 +10,42 @@ interface LandingNavProps {
 
 export function LandingNav({ preference, onSelectTheme }: LandingNavProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [isVisible, setIsVisible] = useState(true)
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY || document.documentElement.scrollTop || 0
+    let ticking = false
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0
+          const heroEl = document.querySelector('.landing-hero-section') as HTMLElement | null
+          const heroHeight = heroEl ? heroEl.offsetHeight + heroEl.offsetTop - 100 : 450
+          const delta = currentScrollY - lastScrollY
+
+          if (currentScrollY <= heroHeight) {
+            // Within or above the hero section: always visible
+            setIsVisible(true)
+          } else {
+            // Below hero section: hide when scrolling down, show when scrolling up
+            if (delta > 6) {
+              setIsVisible(false)
+            } else if (delta < -6) {
+              setIsVisible(true)
+            }
+          }
+
+          lastScrollY = Math.max(0, currentScrollY)
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const navLinks = [
     { id: 'demo', label: 'Interactive Demo' },
@@ -60,7 +96,7 @@ export function LandingNav({ preference, onSelectTheme }: LandingNavProps) {
   }
 
   return (
-    <header className="landing-nav-header">
+    <header className={`landing-nav-header ${isVisible ? 'nav-visible' : 'nav-hidden'}`}>
       <div className="landing-nav-container">
         {/* Brand */}
         <div className="landing-brand-group">
@@ -74,11 +110,6 @@ export function LandingNav({ preference, onSelectTheme }: LandingNavProps) {
           >
             <span className="landing-logo-serif">Gist</span>
           </a>
-
-          <div className="landing-status-pill" title="All processing happens on your local hardware">
-            <span className="landing-status-dot" />
-            <span className="landing-status-text">100% AIR-GAPPED & LOCAL</span>
-          </div>
         </div>
 
         {/* Anchor Navigation with Sliding Hover Capsule */}
