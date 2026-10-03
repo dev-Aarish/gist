@@ -13,7 +13,10 @@
     "@fontsource-variable/inter": "^5.0.18",
     "@fontsource-variable/jetbrains-mono": "^5.0.20",
     "@fontsource-variable/newsreader": "^5.0.16",
+    "@paper-design/shaders-react": "^0.0.81",
+    "gsap": "^3.15.0",
     "lucide-react": "^0.454.0",
+    "motion": "^14.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

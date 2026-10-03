@@ -9,9 +9,23 @@ import { AskScreen } from './screens/AskScreen'
 import { NotesScreen } from './screens/NotesScreen'
 import { ProgressScreen } from './screens/ProgressScreen'
 import { QuizScreen, type QuizIntent } from './screens/QuizScreen'
+import { LandingScreen } from './screens/LandingScreen'
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenId>('ask')
+  const [screen, setScreen] = useState<ScreenId>(() => {
+    try {
+      const hash = window.location.hash.replace(/^#\/?/, '')
+      if (hash === 'ask' || hash === 'quiz' || hash === 'progress' || hash === 'notes') {
+        return hash as ScreenId
+      }
+      if (hash === 'landing') return 'landing'
+      // If user previously opened the app, or default to landing
+      return 'landing'
+    } catch {
+      return 'landing'
+    }
+  })
+
   const [quizIntent, setQuizIntent] = useState<QuizIntent | null>(null)
 
   const { preference, setPreference } = useTheme()
@@ -57,14 +71,42 @@ export default function App() {
   }, [refreshDocuments, refreshProgress, refreshHealth])
 
   useEffect(() => {
-    const item = NAV_ITEMS.find((entry) => entry.id === screen)
-    document.title = item ? `${item.label} · Gist` : 'Gist'
+    if (screen === 'landing') {
+      document.title = 'Gist — Private, Offline Exam Study Companion'
+      window.location.hash = 'landing'
+    } else {
+      const item = NAV_ITEMS.find((entry) => entry.id === screen)
+      document.title = item ? `${item.label} · Gist` : 'Gist'
+      window.location.hash = screen
+    }
   }, [screen])
+
+  // Listen to hash changes for browser forward/backward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#\/?/, '')
+      if (hash === 'ask' || hash === 'quiz' || hash === 'progress' || hash === 'notes' || hash === 'landing') {
+        setScreen(hash as ScreenId)
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   function navigate(next: ScreenId) {
     // Any manual navigation clears a pending "quiz my weak spots" request.
     if (next !== 'quiz') setQuizIntent(null)
     setScreen(next)
+  }
+
+  if (screen === 'landing') {
+    return (
+      <LandingScreen
+        preference={preference}
+        onSelectTheme={setPreference}
+        onLaunchApp={() => navigate('ask')}
+      />
+    )
   }
 
   return (

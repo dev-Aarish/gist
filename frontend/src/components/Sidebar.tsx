@@ -1,4 +1,4 @@
-import { BookOpen, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react'
+import { BookOpen, PanelLeftClose, PanelLeftOpen, Trash2, Sparkles } from 'lucide-react'
 import { NAV_ITEMS, type ScreenId } from '../lib/nav'
 import { pluralize } from '../lib/format'
 import type { DocumentInfo, ModelInfo } from '../lib/types'
@@ -234,6 +234,31 @@ export function Sidebar({
           <ThemeToggle preference={preference} onSelect={onSelectTheme} collapsed={collapsed} />
           {!collapsed ? (
             <>
+              <button
+                type="button"
+                className="side__overview-link-btn"
+                onClick={() => onNavigate('landing')}
+                title="View Gist Landing Page & Overview"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: 'var(--radius-xs)',
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border-soft)',
+                  color: 'var(--text-muted)',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)',
+                  marginBottom: '4px',
+                  transition: 'background-color var(--dur-hover), color var(--dur-hover)',
+                }}
+              >
+                <Sparkles size={13} strokeWidth={1.5} className="text-accent" />
+                <span>Landing & Overview</span>
+              </button>
               <span className="badge">
                 <span className="badge__dot" aria-hidden="true" />
                 Runs locally

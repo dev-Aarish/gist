@@ -87,36 +87,37 @@
 
 /* =============================== DARK (lamplight ink) ==================== */
 :root[data-theme='dark'] {
-  --bg: #14110d;
-  --surface: #1c1813;
-  --surface-2: #262019;
-  --border: #382f26;
-  --border-soft: #2a241d;
-  --text: #efe8db;
-  --text-muted: #9d968a;
-  --text-faint: #6d675e;
-  --accent: #7ec9b4;
-  --on-accent: #14110d;
+  --bg: #12100d;
+  --surface: #1a1612;
+  --surface-2: #26201a;
+  --border: #4a3e33;
+  --border-soft: #382e25;
+  --text: #fbf8f1;
+  --text-muted: #b8b2a5;
+  --text-faint: #8e877a;
+  --accent: #6edac0;
+  --on-accent: #0f1614;
 
   --success: #57c98d;
-  --success-bg: #18301f;
-  --warning: #e3b154;
-  --warning-bg: #2e2513;
-  --danger: #ec7263;
-  --danger-bg: #331b17;
+  --success-bg: #162e20;
+  --warning: #f4be56;
+  --warning-bg: #332712;
+  --danger: #f2796e;
+  --danger-bg: #381a17;
 
-  --bubble-assistant-bg: #d9e3dc;
-  --bubble-assistant-text: #17201c;
-  --bubble-user-bg: #1c3a34;
-  --bubble-user-text: #d9eae2;
+  --bubble-assistant-bg: #e2ece6;
+  --bubble-assistant-text: #141b18;
+  --bubble-user-bg: #1c3d36;
+  --bubble-user-text: #e0f2eb;
 
-  --tile-clay: #5c3624;
-  --tile-ochre: #4f3d18;
-  --tile-moss: #3b4722;
-  --tile-fern: #28402e;
-  --tile-rose: #4d2b2b;
-  --tile-teal: #1d4741;
+  /* Luminous stationery tiles in dark mode — radiant earth hues that pop */
+  --tile-clay: #e07a5f;
+  --tile-ochre: #e9c46a;
+  --tile-moss: #90be6d;
+  --tile-fern: #6ba283;
+  --tile-rose: #e76f51;
+  --tile-teal: #52b788;
 
-  --hatch: rgba(239, 232, 219, 0.16);
-  --scrim: rgba(0, 0, 0, 0.62);
+  --hatch: rgba(251, 248, 241, 0.18);
+  --scrim: rgba(0, 0, 0, 0.65);
 }
