@@ -190,3 +190,9 @@ Comprehensive documentation is available in the [`docs/`](docs/README.md) direct
 - **[Architecture & Design](docs/architecture.md)**: Deep dive into the offline-first privacy model, dual-engine RAG and exam analyzer, and scoring math.
 - **[API Reference](docs/api-reference.md)**: Complete endpoint specifications, request payloads, and response formats.
 - **[Configuration Reference](docs/configuration.md)**: Environment variables, runtime parameters, and dynamic model discovery rules.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
