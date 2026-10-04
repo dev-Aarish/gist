@@ -1,6 +1,6 @@
 # System Architecture & Design Concepts
 
-This document provides a conceptual explanation of **Gist** (Exam Buddy), detailing its dual-engine architecture, data flow mechanics, retrieval-augmented generation (RAG) design, past-paper intelligence, and exam priority formulas.
+This document provides a conceptual explanation of **Gist** (Exam Buddy), detailing its dual-engine architecture, data flow mechanics, retrieval-augmented generation (RAG) design, past-paper intelligence, mock exam simulation, and exam priority formulas.
 
 ---
 
@@ -10,9 +10,9 @@ This document provides a conceptual explanation of **Gist** (Exam Buddy), detail
 Gist runs entirely on the host machine. All AI inference, vector embedding, and document processing happen locally via Ollama, PyMuPDF, ChromaDB, and SQLite. Zero data, telemetry, or document text leaves your machine.
 
 ### 2. Dual-Engine Learning Architecture
-Unlike standard RAG tools that only answer user questions from notes, Gist couples **Course Note Grounding** with **Exam Intelligence**:
+Unlike standard RAG tools that only answer user questions from notes, Gist couples **Course Note Grounding** with **Exam Intelligence & Simulation**:
 - **Engine 1 (Note RAG)**: Answers questions with strict page-level citations (`[Source: document.pdf, Page: N]`).
-- **Engine 2 (Past-Paper Analyzer & Priority Matrix)**: Extracts recurring question patterns, determines topic marks weightages, and prioritizes revision based on what exams test most.
+- **Engine 2 (Past-Paper Analyzer, Priority Matrix & Mock Exam Simulator)**: Extracts recurring question patterns, determines topic marks weightages, and conducts timed multi-mark examinations ("Grill Me" mode).
 
 ### 3. Strict Hallucination Prevention
 For academic study and exam preparation, inaccurate information is harmful. Gist uses strict system prompts combined with low generation temperatures ($T = 0.2$) to enforce factual grounding. If retrieved document chunks do not contain sufficient context to answer a question, the system explicitly admits missing information rather than generating speculative answers.
@@ -32,9 +32,11 @@ graph TD
     Gateway --> PaperAnalyzer["Past-Paper Analyzer (Regex + LLM)"]
     Gateway --> VectorEngine["ChromaDB Vector Store"]
     Gateway --> MetricsEngine["SQLite Database (tracker.db)"]
+    Gateway --> ExamSimulator["Mock Exam Simulator ('Grill Me')"]
     
     Gateway --> LLMClient["Ollama Local Runtime"]
     VectorEngine --> LLMClient
+    ExamSimulator --> LLMClient
     
     subgraph OllamaRuntime ["Dynamic Open-Weight Models"]
         EmbeddingEngine["Embedding Models: nomic-embed-text / bge-m3"]
@@ -117,7 +119,26 @@ graph TD
 
 ---
 
-### 4. Exam Priority Matrix & Mastery Calculation
+### 4. Mock Exam Simulation & Multi-Mark Evaluation
+
+```mermaid
+graph TD
+    ExamConfig["Select Exam Preset or Custom Configuration"] --> GenerateExam["Assemble Multi-Topic Exam with Mark Allocations"]
+    GenerateExam --> Countdown["Timed Test Session with Countdown Timer"]
+    Countdown --> SubmitAnswers["Student Submits Multi-Question Responses"]
+    SubmitAnswers --> MultiMarkEval["Multi-Mark LLM Grading (0.0 to Max Marks per Question)"]
+    MultiMarkEval --> ScoreAggregation["Calculate Overall Marks, Grade Percentage & Topic Mastery"]
+    ScoreAggregation --> PersistAttempt["Log Full Attempt & Question Explanations to SQLite"]
+    PersistAttempt --> ResultReview["Display Comprehensive Marks Breakdown & Review"]
+```
+
+- **Mark Budgets**: Each question carries specific marks (e.g. 2 marks for definitions, 5 marks for explanations, 10 marks for comprehensive derivations).
+- **Conceptual Multi-Mark Grading**: The LLM evaluates multi-mark short and long answers against a strict grading rubric, assigning continuous partial marks ($0.0 \dots \text{Max Marks}$) with itemized feedback.
+- **Persistent Attempt Logs**: All questions, student answers, and grading remarks are archived in SQLite (`tracker.db`) for retrospective review (`/quiz/attempts/{quiz_id}`).
+
+---
+
+### 5. Exam Priority Matrix & Mastery Calculation
 
 ```mermaid
 graph TD
@@ -154,7 +175,7 @@ graph TD
 ```
 data/
 ├── chroma/           # ChromaDB persistent vector database files
-├── tracker.db        # SQLite database (papers, question bank, quiz logs, and mastery scores)
+├── tracker.db        # SQLite database (papers, question bank, attempt logs, and mastery scores)
 ├── uploads/          # Original course PDFs and past question papers
 └── model_config.json # Persisted active model selection across restarts
 ```

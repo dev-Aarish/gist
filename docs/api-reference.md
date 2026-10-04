@@ -232,7 +232,8 @@ Generates a structured quiz containing multiple-choice and short-answer question
     "topic": "DBMS",
     "num_questions": 5,
     "use_weak_spots": true,
-    "use_high_yield": true
+    "use_high_yield": true,
+    "fast_mode": false
   }
   ```
 - **Parameters**:
@@ -240,6 +241,7 @@ Generates a structured quiz containing multiple-choice and short-answer question
   - `num_questions`: Number of questions to generate (1 to 20, default: 5).
   - `use_weak_spots`: When true, pulls concepts where quiz accuracy is below 70%.
   - `use_high_yield`: When true, prioritizes concepts identified as high-yield in the Past-Paper Priority Matrix.
+  - `fast_mode`: When true, fetches archived past exam questions instantly (<100ms) without LLM authoring.
 - **Response `200 OK`**: Returns structured questions with answer options and evaluation rubrics.
 
 ---
@@ -249,6 +251,14 @@ Evaluates student quiz answers, grades short-answer responses via the active LLM
 
 - **Request Body**: Payload containing question identifiers and student responses.
 - **Response `200 OK`**: Returns score percentages, itemized explanations, and updated topic mastery metrics.
+
+---
+
+### `GET /quiz/attempts/{quiz_id}`
+Retrieves graded question details, student answers, explanations, and scores for a specific past quiz attempt.
+
+- **Path Parameters**: `quiz_id` (string).
+- **Response `200 OK`**: Full `QuizResult` object for historical review.
 
 ---
 
@@ -262,6 +272,14 @@ Retrieves detailed attempt counts, correct answer ratios, and mastery scores per
 
 ---
 
+### `GET /topics/{topic}/history`
+Retrieves all historical questions, student answers, and grading remarks asked under a specific topic.
+
+- **Path Parameters**: `topic` (string).
+- **Response `200 OK`**: Full `QuizResult` payload containing all question logs for that topic.
+
+---
+
 ### `POST /reset`
 Performs granular database resets.
 
@@ -272,7 +290,77 @@ Performs granular database resets.
 
 ---
 
-## 5. Past-Paper Analyzer & Exam Intelligence
+## 5. Mock Exam Simulator ("Grill Me" Mode)
+
+### `GET /exam/presets`
+Returns pre-configured mock exam tier templates.
+
+- **Response `200 OK`**:
+  ```json
+  {
+    "presets": [
+      {
+        "id": "sprint",
+        "name": "Quick Grill",
+        "tagline": "Rapid-fire precision check",
+        "duration_minutes": 15,
+        "total_marks": 25,
+        "num_questions": 5,
+        "description": "5 targeted questions covering core formulas, concepts, and definitions under 15 minutes."
+      },
+      {
+        "id": "standard",
+        "name": "Standard Mock",
+        "tagline": "Midterm-depth balanced exam",
+        "duration_minutes": 30,
+        "total_marks": 50,
+        "num_questions": 8,
+        "description": "8 balanced questions spanning theory, problem-solving, and analysis across all uploaded topics."
+      },
+      {
+        "id": "comprehensive",
+        "name": "Finals Marathon",
+        "tagline": "Full high-stakes examination simulation",
+        "duration_minutes": 60,
+        "total_marks": 100,
+        "num_questions": 15,
+        "description": "15 rigorous questions weighted across high-yield past paper topics and comprehensive theory."
+      }
+    ]
+  }
+  ```
+
+---
+
+### `POST /exam/generate`
+Generates a timed multi-topic mock examination with mark allocations.
+
+- **Request Body**:
+  ```json
+  {
+    "subject": "DBMS",
+    "topic": "Normalization",
+    "duration_minutes": 30,
+    "total_marks": 50.0,
+    "num_questions": 8,
+    "use_weak_spots": true,
+    "use_high_yield": true,
+    "fast_mode": false
+  }
+  ```
+- **Response `200 OK`**: Returns a `MockExam` object containing `exam_id`, time limit, mark budget, and structured multi-mark questions.
+
+---
+
+### `POST /exam/submit`
+Evaluates mock exam submissions (MCQs and conceptual/problem multi-mark evaluation), calculating individual marks and generating a comprehensive score breakdown by topic.
+
+- **Request Body**: `MockExamSubmission` containing `exam_id` and list of answers.
+- **Response `200 OK`**: Returns a `MockExamResult` with total marks obtained, percentage score, topic breakdown, and itemized feedback.
+
+---
+
+## 6. Past-Paper Analyzer & Exam Intelligence
 
 ### `POST /past-papers/upload`
 Uploads previous years' question paper PDFs, parses questions, extracts marks allocations, tags academic topics, and indexes content into SQLite and ChromaDB.
@@ -307,25 +395,7 @@ Uploads previous years' question paper PDFs, parses questions, extracts marks al
 Lists all uploaded and analyzed question papers, with optional subject filtering.
 
 - **Query Parameters**: `subject` (optional string).
-- **Response `200 OK`**:
-  ```json
-  {
-    "papers": [
-      {
-        "id": 1,
-        "filename": "DBMS_2023_Final.pdf",
-        "title": "Database Management Systems Final Exam",
-        "year": "2023",
-        "subject": "DBMS",
-        "total_questions": 12,
-        "total_marks": 100.0,
-        "created_at": "2026-10-04T12:00:00"
-      }
-    ],
-    "total_papers": 1,
-    "active_subject": "DBMS"
-  }
-  ```
+- **Response `200 OK`**: Lists paper summaries and metadata.
 
 ---
 
@@ -354,7 +424,6 @@ Returns a list of distinct academic subjects across all uploaded question papers
 Returns full details and all extracted questions for a specific past paper.
 
 - **Path Parameters**: `paper_id` (integer).
-- **Response `200 OK`**: Returns paper metadata and an array of extracted question objects including question text, question number, subtopic tag, and detected marks.
 
 ---
 
@@ -362,13 +431,6 @@ Returns full details and all extracted questions for a specific past paper.
 Deletes a past paper and its associated questions from the SQLite database.
 
 - **Path Parameters**: `paper_id` (integer).
-- **Response `200 OK`**:
-  ```json
-  {
-    "status": "success",
-    "deleted_paper_id": 1
-  }
-  ```
 
 ---
 
@@ -376,7 +438,6 @@ Deletes a past paper and its associated questions from the SQLite database.
 Aggregates topic frequency, total marks, percentage contribution, and yield ratings across uploaded past papers.
 
 - **Query Parameters**: `subject` (optional string).
-- **Response `200 OK`**: Returns total papers analyzed, total questions extracted, and a breakdown of topics classified by yield tier (High Yield, Medium Yield, Low Yield).
 
 ---
 
@@ -384,32 +445,6 @@ Aggregates topic frequency, total marks, percentage contribution, and yield rati
 Intersects past-paper marks distribution with student quiz mastery scores to generate the High-Yield Priority Matrix.
 
 - **Query Parameters**: `subject` (optional string).
-- **Response `200 OK`**:
-  ```json
-  {
-    "total_papers_analyzed": 3,
-    "total_past_questions": 32,
-    "high_yield_weak_spots_count": 2,
-    "critical_priority_count": 1,
-    "summary_insight": "Found 1 critical topic worth 28% of exam marks where quiz accuracy is below 50%.",
-    "prioritized_topics": [
-      {
-        "topic": "Normalization",
-        "exam_marks": 28.0,
-        "exam_marks_pct": 28.0,
-        "exam_frequency_pct": 100.0,
-        "exam_importance": 28.0,
-        "question_count": 5,
-        "quiz_attempts": 6,
-        "quiz_accuracy": 33.3,
-        "mastery_status": "Weak Spot",
-        "priority_level": "critical",
-        "priority_score": 82.4,
-        "recommendation": "Critical Priority. Worth ~28% of exam marks with only 33% accuracy. Needs immediate focus."
-      }
-    ]
-  }
-  ```
 
 ---
 
@@ -423,28 +458,8 @@ Searchable question bank supporting filtering by subject, topic, year, paper ID,
   - `paper_id` (optional integer)
   - `search` (optional string)
   - `limit` (integer, default: 100, max: 500)
-- **Response `200 OK`**:
-  ```json
-  {
-    "questions": [
-      {
-        "id": 14,
-        "paper_id": 1,
-        "question_number": "Q3(a)",
-        "question_text": "Explain Boyce-Codd Normal Form with a suitable example.",
-        "topic": "Normalization",
-        "marks": 10.0,
-        "year": "2023",
-        "subject": "DBMS"
-      }
-    ],
-    "total_questions": 1
-  }
-  ```
 
 ---
 
 ### `POST /past-papers/reanalyze`
 Re-runs question extraction and topic categorization across all stored question papers in `data/uploads`.
-
-- **Response `200 OK`**: Returns re-analysis summary counts.

@@ -1,6 +1,6 @@
-# Gist (Exam Buddy)
+# Gist
 
-Gist is an offline, privacy-first AI study partner powered by local open-weight large language models (LLMs) via Ollama, FastAPI, and React. It combines page-grounded document Q&A with an exam intelligence engine that analyzes past question papers, detects topic marks weightages, and prioritizes high-yield weak spots.
+Gist is an offline, privacy-first AI study partner powered by local open-weight large language models (LLMs) via Ollama, FastAPI, and React. It combines page-grounded document Q&A with an exam intelligence engine that analyzes past question papers, detects topic marks weightages, prioritizes high-yield weak spots, and conducts timed mock exams ("Grill Me" mode).
 
 ---
 
@@ -8,8 +8,8 @@ Gist is an offline, privacy-first AI study partner powered by local open-weight 
 
 ```mermaid
 graph TD
-    subgraph UserInterface ["Frontend Client (React 18 + Vite - Dark Mode)"]
-        UI["Web Interface: Chat, Past-Paper Workbench, Priority Matrix, Quizzes"]
+    subgraph UserInterface ["Frontend Client (React 18 + Vite - Dark Theme)"]
+        UI["Web Interface: Chat, Past-Paper Workbench, Priority Matrix, Quizzes, Timed Mock Exams"]
     end
 
     subgraph BackendGateway ["Backend API (FastAPI)"]
@@ -17,12 +17,13 @@ graph TD
         Ingest["Document Ingestion Engine (PyMuPDF)"]
         Analyzer["Past-Paper Analyzer Engine"]
         RAG["Grounded RAG Pipeline"]
-        Quiz["Adaptive Quiz & Grading Engine"]
+        Quiz["Adaptive Quiz & Instant Bank Engine"]
+        Exam["Mock Exam Simulator ('Grill Me' Engine)"]
     end
 
     subgraph StorageLayer ["Local Persistent Storage"]
         Chroma["ChromaDB: Vector Embeddings"]
-        SQLite["SQLite (tracker.db): Papers, Questions & Mastery"]
+        SQLite["SQLite (tracker.db): Papers, Question Bank, Mastery & Attempt History"]
         Uploads["PDF Storage (data/uploads)"]
     end
 
@@ -36,6 +37,7 @@ graph TD
     API --> Analyzer
     API --> RAG
     API --> Quiz
+    API --> Exam
 
     Ingest -->|"Extract Text & Chunk"| Uploads
     Ingest -->|"Generate Vector Embeddings"| EmbedModel
@@ -49,9 +51,11 @@ graph TD
     RAG -->|"Grounded Citation Prompting"| ChatModel
     ChatModel -->|"Stream Answer Tokens"| API
 
-    Quiz -->|"Cross-Reference Yield & Weak Spots"| SQLite
-    Quiz -->|"Generate Exam-Targeted Questions"| ChatModel
-    Quiz -->|"Update Mastery Records"| SQLite
+    Quiz -->|"Fast Mode & AI Authoring"| SQLite
+    Quiz -->|"Generate & Auto-Grade"| ChatModel
+
+    Exam -->|"Timed Simulation & Multi-Mark Evaluation"| ChatModel
+    Exam -->|"Log Attempt History & Update Mastery"| SQLite
 ```
 
 ---
@@ -64,7 +68,7 @@ Recommended open-weight models include:
 
 - **Google Gemma 2** (`gemma2:9b`, `gemma2:2b`): First-class recommendation for exceptional reasoning, strong factual recall, and low latency. The `2b` variant offers full capabilities on 8 GB RAM machines.
 - **Meta Llama** (`llama3.2:3b`, `llama3.2:1b`, `llama3.1:8b`): High-efficiency conversational models optimized for resource-constrained environments.
-- **Mistral** (`mistral:7b`, `mistral-nemo`): Excellent balanced performance for technical and conceptual explanations.
+- **Mistral** (`mistral:7b`, `mistral-nemo`): Balanced performance for technical and conceptual explanations.
 - **Microsoft Phi** (`phi4`, `phi3.5`): Highly capable compact models for mathematical and logical reasoning.
 - **DeepSeek** (`deepseek-r1:8b`, `deepseek-r1:7b`): Open-weight reasoning models for step-by-step problem derivation.
 - **Qwen** (`qwen2.5:7b`, `qwen2.5:14b`): Multilingual and coding-capable open models.
@@ -78,9 +82,11 @@ Recommended open-weight models include:
 - **Dual-Engine Learning**:
   - *Study Note RAG*: Ingest lecture notes and textbooks with page-level citation accountability (`[Source: lecture1.pdf, Page: 4]`).
   - *Past-Paper Exam Intelligence*: Upload previous years' exam papers (PDFs) to automatically extract questions, detect marks allocations, and compute historical topic frequencies.
+- **Timed Mock Exam Simulations ("Grill Me" Mode)**: Experience realistic exam conditions with configurable time limits (Sprint, Standard Mock, Finals Marathon), mark budgets, question navigators, and rigorous multi-mark grading with itemized feedback.
 - **Exam Priority Matrix**: Automatically cross-references past exam weightages against your quiz performance to pinpoint **High-Yield Weak Spots**—topics worth significant exam marks where your mastery is lowest.
+- **Fast Mode (Instant Question Bank)**: Switch between AI-authored questions and instant past-paper question bank generation with sub-100ms response times.
+- **Detailed Attempt History & Review**: Inspect previous quiz attempts with full question logs, student submissions, and examiner evaluation remarks.
 - **Subject Segregation**: Separate notes, past papers, questions, and mastery statistics by academic subject (for example, *DBMS*, *Operating Systems*, *Mathematics*).
-- **Adaptive Quizzing & Grading**: Generate multiple-choice and conceptual short-answer quizzes targeted at specific topics, general weak spots, or high-yield exam patterns, with instant automated grading.
 - **Dark-Theme Interactive Workbench**: Polished, low-distraction user interface featuring a diagnostic quiz workbench, question browser, and progress analytics.
 
 ---
@@ -89,11 +95,11 @@ Recommended open-weight models include:
 
 | Component | Technology | Purpose |
 | --- | --- | --- |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons | Dark-mode interface, question browser, priority matrix visualizer |
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons | Dark-mode interface, question browser, mock exam workbench |
 | **Backend** | FastAPI, Python 3.10+, Uvicorn, Pydantic | REST API and Server-Sent Events (SSE) streaming gateway |
 | **PDF Extraction** | PyMuPDF (`fitz`) | Fast, page-aware text and exam paper extraction |
 | **Vector Database** | ChromaDB | Persistent local dense vector store for similarity retrieval |
-| **Relational Database** | SQLite (`data/tracker.db`) | Question bank, past papers, attempt metrics, and topic mastery |
+| **Relational Database** | SQLite (`data/tracker.db`) | Question bank, past papers, attempt history, and topic mastery |
 | **Local LLM Runtime** | Ollama | Dynamic execution of Gemma 2, Llama 3.2, Mistral, and other models |
 
 ---
@@ -166,10 +172,15 @@ Open `http://localhost:5173` in your browser.
 | `DELETE` | `/subjects/{topic}` | Deletes all course documents and tracking records for a subject |
 | `POST` | `/ask` | Synchronous grounded Q&A against course materials |
 | `POST` | `/ask/stream` | Streamed token response via Server-Sent Events (SSE) |
-| `POST` | `/quiz/generate` | Generates quizzes (supports `use_weak_spots` and `use_high_yield`) |
+| `POST` | `/quiz/generate` | Generates quizzes (supports `fast_mode`, `use_weak_spots`, and `use_high_yield`) |
 | `POST` | `/quiz/submit` | Evaluates student answers and logs topic mastery |
+| `GET` | `/quiz/attempts/{quiz_id}` | Retrieves full question-by-question review for a past attempt |
+| `GET` | `/exam/presets` | Returns pre-configured mock exam tier templates |
+| `POST` | `/exam/generate` | Generates timed multi-topic mock exams with mark budgets |
+| `POST` | `/exam/submit` | Evaluates mock exam submissions with multi-mark scoring |
 | `GET` | `/progress` | Retrieves overall progress, average scores, and weak spots |
 | `GET` | `/topics` | Retrieves score statistics grouped by topic |
+| `GET` | `/topics/{topic}/history` | Retrieves question history and remarks for a topic |
 | `POST` | `/past-papers/upload` | Extracts questions, marks, and topics from past exam PDFs |
 | `GET` | `/past-papers` | Lists uploaded past papers (supports subject filtering) |
 | `GET` | `/past-papers/subjects`| Lists distinct subjects across uploaded past papers |
@@ -186,8 +197,8 @@ Open `http://localhost:5173` in your browser.
 Comprehensive documentation is available in the [`docs/`](docs/README.md) directory:
 
 - **[Getting Started Tutorial](docs/getting-started.md)**: Step-by-step onboarding lesson for setup and verification.
-- **[How-To Guides](docs/how-to-guides.md)**: Actionable recipes for operational tasks, model switching, and troubleshooting.
-- **[Architecture & Design](docs/architecture.md)**: Deep dive into the offline-first privacy model, dual-engine RAG and exam analyzer, and scoring math.
+- **[How-To Guides](docs/how-to-guides.md)**: Actionable recipes for mock exams, model switching, and troubleshooting.
+- **[Architecture & Design](docs/architecture.md)**: Deep dive into the offline-first privacy model, dual-engine RAG, exam simulator, and scoring math.
 - **[API Reference](docs/api-reference.md)**: Complete endpoint specifications, request payloads, and response formats.
 - **[Configuration Reference](docs/configuration.md)**: Environment variables, runtime parameters, and dynamic model discovery rules.
 
@@ -195,4 +206,4 @@ Comprehensive documentation is available in the [`docs/`](docs/README.md) direct
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the [MIT License](LICENSE).

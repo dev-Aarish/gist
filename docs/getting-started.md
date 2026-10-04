@@ -1,6 +1,6 @@
 # Tutorial: Getting Started with Gist
 
-This tutorial guides you step-by-step through setting up and running **Gist** on your local machine for the first time. By the end of this tutorial, you will have a running local instance of Gist powered by local open-weight models, index a course document, analyze a past question paper, inspect the High-Yield Priority Matrix, and generate your first exam-targeted quiz.
+This tutorial guides you step-by-step through setting up and running **Gist** on your local machine for the first time. By the end of this tutorial, you will have a running local instance of Gist powered by local open-weight models, index a course document, analyze a past question paper, inspect the High-Yield Priority Matrix, and generate your first exam-targeted mock quiz.
 
 ---
 
@@ -30,7 +30,7 @@ graph TD
     AppReady --> UploadDoc["Upload Course Notes PDF"]
     UploadDoc --> UploadPastPaper["Upload Past Exam Paper PDF"]
     UploadPastPaper --> CheckMatrix["Review High-Yield Priority Matrix"]
-    CheckMatrix --> TargetedQuiz["Take High-Yield Diagnostic Quiz"]
+    CheckMatrix --> TargetedQuiz["Take Timed Mock Exam or Diagnostic Quiz"]
 ```
 
 ---
@@ -139,9 +139,14 @@ Verify both the note RAG engine and the exam intelligence engine:
    - In the **Priority Matrix** view, examine the topic yield analysis.
    - Observe how topics worth high exam marks are highlighted.
 
-5. **Generate a High-Yield Targeted Quiz**:
-   - Navigate to the **Quiz** section, select your subject, and toggle **Focus on High-Yield Weak Spots**.
-   - Complete the quiz. Gist grades your answers immediately, updates your topic mastery scores in SQLite, and dynamically updates the Priority Matrix to reflect your progress.
+5. **Generate an Adaptive Quiz (or Fast Mode)**:
+   - Navigate to the **Quiz** section, select your subject, and toggle **Focus on High-Yield Weak Spots** or **Instant Bank**.
+   - Complete the quiz. Gist grades your answers immediately and updates topic mastery in SQLite.
+
+6. **Experience Mock Exam Mode ("Grill Me")**:
+   - Navigate to the **Grill Me** screen.
+   - Select the **Quick Grill** preset (15 mins, 5 questions, 25 marks).
+   - Test yourself under realistic countdown timer pressure and review your itemized marks breakdown.
 
 ---
 

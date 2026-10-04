@@ -39,12 +39,93 @@ uvicorn backend.main:app --reload --port 8000
 
 ---
 
-## 2. How to Upload and Analyze Past Exam Question Papers
+## 2. How to Run Timed Mock Exam Simulations ("Grill Me" Mode)
+
+The Mock Exam Simulator reproduces real examination pressure with timed multi-topic question sets and multi-mark allocations.
+
+### Option A: Using Preset Exam Tiers
+Fetch the standard exam presets:
+
+```bash
+curl -X GET "http://localhost:8000/exam/presets"
+```
+
+Presets include:
+- **Quick Grill** (`sprint`): 15 minutes, 25 total marks, 5 targeted questions.
+- **Standard Mock** (`standard`): 30 minutes, 50 total marks, 8 balanced questions.
+- **Finals Marathon** (`comprehensive`): 60 minutes, 100 total marks, 15 comprehensive questions.
+
+### Option B: Generating a Custom Mock Exam
+Generate a tailored exam with specific time limits and mark totals:
+
+```bash
+curl -X POST "http://localhost:8000/exam/generate" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "subject": "DBMS",
+       "duration_minutes": 45,
+       "total_marks": 75,
+       "num_questions": 10,
+       "use_high_yield": true,
+       "fast_mode": false
+     }'
+```
+
+Submit student answers for itemized grading:
+
+```bash
+curl -X POST "http://localhost:8000/exam/submit" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "exam_id": "exam_uuid_here",
+       "answers": [
+         {"question_id": "q1", "student_answer": "Option B"},
+         {"question_id": "q2", "student_answer": "Normalization eliminates anomalies by decomposing relations..."}
+       ]
+     }'
+```
+
+---
+
+## 3. How to Use Fast Mode for Instant Question Generation
+
+By default, Gist authors fresh AI questions tailored to your notes. If you need instant generation under 100ms, enable `fast_mode`:
+
+```bash
+curl -X POST "http://localhost:8000/quiz/generate" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "topic": "DBMS",
+       "num_questions": 5,
+       "fast_mode": true
+     }'
+```
+
+Fast Mode draws pre-extracted, verified questions directly from your past-paper question archive in SQLite without making LLM generation calls.
+
+---
+
+## 4. How to Inspect Past Quiz Attempts and Topic History
+
+Gist records detailed logs for every quiz attempt.
+
+### Inspect a Specific Quiz Attempt
+```bash
+curl -X GET "http://localhost:8000/quiz/attempts/quiz_attempt_id_here"
+```
+Returns student answers, correct options, examiner remarks, and individual question scores.
+
+### Review All Questions for a Topic
+```bash
+curl -X GET "http://localhost:8000/topics/Normalization/history"
+```
+Returns historical questions asked under *Normalization* with previous answers and feedback.
+
+---
+
+## 5. How to Upload and Analyze Past Exam Question Papers
 
 Gist can ingest previous years' question papers to build an automated exam question bank with marks detection.
-
-### Uploading via cURL
-Use the `POST /past-papers/upload` multi-part endpoint:
 
 ```bash
 curl -X POST "http://localhost:8000/past-papers/upload" \
@@ -60,7 +141,7 @@ The engine:
 4. Stores the structured question items in SQLite for query filtering and priority analysis.
 
 ### Re-analyzing Stored Papers
-If you pull a more capable model (for example, switching from `2b` to `9b`) and want to improve topic categorization across existing papers:
+To re-run topic categorization and marks extraction across existing stored papers:
 
 ```bash
 curl -X POST "http://localhost:8000/past-papers/reanalyze"
@@ -68,11 +149,9 @@ curl -X POST "http://localhost:8000/past-papers/reanalyze"
 
 ---
 
-## 3. How to Interpret and Act on the Exam Priority Matrix
+## 6. How to Interpret and Act on the Exam Priority Matrix
 
 The Exam Priority Matrix cross-references past paper topic weightages with your quiz mastery scores.
-
-To fetch the matrix:
 
 ```bash
 curl -X GET "http://localhost:8000/past-papers/priority-matrix?subject=DBMS"
@@ -102,7 +181,7 @@ graph TD
 
 ---
 
-## 4. How to Isolate Study Materials with Subject Segregation
+## 7. How to Isolate Study Materials with Subject Segregation
 
 Gist supports full subject segregation, keeping distinct courses (such as *Database Systems* and *Operating Systems*) completely separate.
 
@@ -124,7 +203,7 @@ curl -X DELETE "http://localhost:8000/subjects/DBMS"
 
 ---
 
-## 5. How to Reset System Data
+## 8. How to Reset System Data
 
 Gist provides granular controls to reset different data stores independently.
 
@@ -167,7 +246,7 @@ curl -X POST "http://localhost:8000/reset?reset_vector_db=true&reset_tracking=tr
 
 ---
 
-## 6. How to Tune Text Chunking Parameters
+## 9. How to Tune Text Chunking Parameters
 
 If your study materials contain dense mathematical formulas or lengthy code blocks, tuning the text splitter parameters in `backend/config.py` can improve retrieval precision.
 
@@ -182,7 +261,7 @@ If your study materials contain dense mathematical formulas or lengthy code bloc
 
 ---
 
-## 7. How to Troubleshoot Common Issues
+## 10. How to Troubleshoot Common Issues
 
 ```mermaid
 graph TD
