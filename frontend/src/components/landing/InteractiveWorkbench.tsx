@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   MessageSquare,
@@ -13,6 +13,10 @@ import {
   Search,
   Lock,
   BookmarkCheck,
+  RotateCcw,
+  Check,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 
 type WorkbenchTab = 'ask' | 'quiz' | 'progress'
@@ -30,10 +34,146 @@ export function InteractiveWorkbench() {
   const [streamedText, setStreamedText] = useState('')
   const [activeCitation, setActiveCitation] = useState<number | null>(null)
 
+  // 5 Diagnostic Quiz Questions for OS_Final_Review.pdf demo
+  const allQuizQuestions = useMemo(
+    () => [
+      {
+        id: 1,
+        title: 'Virtual Memory & Architecture',
+        tag: 'WEAK SPOT',
+        tagType: 'weak' as const,
+        question:
+          'In a multi-level page table architecture, what is the primary purpose of the Translation Lookaside Buffer (TLB)?',
+        options: [
+          { id: 0, text: 'To store the operating system kernel code in fast SRAM cache' },
+          {
+            id: 1,
+            text: 'To cache recent virtual-to-physical address translations and avoid multi-step RAM lookups',
+            correct: true,
+          },
+          { id: 2, text: 'To compress inactive memory pages before swapping them to SSD disk storage' },
+          { id: 3, text: 'To synchronize memory writes between multiple CPU cores in real-time' },
+        ],
+        explanation:
+          'Without a TLB, each memory access in a 4-level page table requires 4 separate memory accesses just to translate the address. The TLB is an associative high-speed hardware cache that resolves translations in ~1 CPU clock cycle.',
+        citation: 'Silberschatz & Galvin · OS Concepts p.360',
+      },
+      {
+        id: 2,
+        title: 'Process Synchronization & Semaphores',
+        tag: 'WEAK SPOT',
+        tagType: 'weak' as const,
+        question:
+          'Which protocol prevents priority inversion when a low-priority thread holds a shared lock needed by a high-priority thread?',
+        options: [
+          {
+            id: 0,
+            text: 'Priority Inheritance: the lock-holding low-priority thread temporarily runs at the higher priority',
+            correct: true,
+          },
+          { id: 1, text: 'First-Come-First-Served spinlock queuing without OS preemption' },
+          { id: 2, text: 'Immediate termination of all intermediate-priority tasks in the ready queue' },
+          { id: 3, text: 'Disabling CPU interrupts globally until all threads release their semaphores' },
+        ],
+        explanation:
+          'Priority inheritance elevates the priority of the thread holding the mutex to match the highest-priority thread waiting for it, preventing intermediate-priority tasks from preempting the lock holder.',
+        citation: 'Operating System Concepts 10th Ed · Section 6.7, p.278',
+      },
+      {
+        id: 3,
+        title: 'CPU Scheduling & Deadlocks',
+        tag: 'MASTERED',
+        tagType: 'strong' as const,
+        question:
+          'Under Dijkstra\'s Banker\'s Algorithm, which condition must be met for a state to be classified as "Safe"?',
+        options: [
+          { id: 0, text: 'Available resources immediately exceed the sum of maximum claims of all active processes' },
+          { id: 1, text: 'No process is currently requesting any additional system resources' },
+          {
+            id: 2,
+            text: 'There exists an execution sequence <P1...Pn> where every process can acquire maximum resources and finish',
+            correct: true,
+          },
+          { id: 3, text: 'All threads operate exclusively under non-preemptive Round-Robin quantum intervals' },
+        ],
+        explanation:
+          'A state is safe if there exists at least one order (a safe sequence) in which all processes can eventually complete, even if all suddenly demand their maximum declared resource limits.',
+        citation: 'Modern Operating Systems 4th Ed · Section 6.5, p.452',
+      },
+      {
+        id: 4,
+        title: 'Virtual Memory & Page Replacement',
+        tag: 'IN PROGRESS',
+        tagType: 'mid' as const,
+        question:
+          'Why does Belady\'s Anomaly occur in the First-In First-Out (FIFO) page replacement algorithm?',
+        options: [
+          { id: 0, text: 'Because FIFO pages are corrupted during asynchronous disk swap flushes' },
+          {
+            id: 1,
+            text: 'Because FIFO does not satisfy the stack inclusion property as frame count increases',
+            correct: true,
+          },
+          { id: 2, text: 'Because FIFO fails to update the reference bit during a TLB shootdown' },
+          { id: 3, text: 'Because physical frame addresses must always be strictly monotonically increasing' },
+        ],
+        explanation:
+          'Stack algorithms like LRU guarantee that pages in memory with n frames are a subset of pages with n+1 frames. FIFO lacks this property, so increasing frame allocation can paradoxically cause more page faults.',
+        citation: 'Silberschatz & Galvin · OS Concepts Section 10.4, p.398',
+      },
+      {
+        id: 5,
+        title: 'Storage & Unix File Systems',
+        tag: 'IN PROGRESS',
+        tagType: 'mid' as const,
+        question:
+          'In a Unix Fast File System (FFS) inode structure, what is the primary architectural purpose of indirect pointer blocks?',
+        options: [
+          { id: 0, text: 'To encrypt block addresses using hardware AES keys before saving metadata' },
+          {
+            id: 1,
+            text: 'To allow compact inodes for small files while supporting multi-gigabyte files via hierarchical blocks',
+            correct: true,
+          },
+          { id: 2, text: 'To deduplicate identical data blocks across multiple user home directories' },
+          { id: 3, text: 'To provide automatic RAID parity checking without kernel filesystem drivers' },
+        ],
+        explanation:
+          'Direct pointers provide single-lookup fast access for files up to 48KB (12 blocks x 4KB). Single, double, and triple indirect pointers expand capacity exponentially to hundreds of gigabytes without wasting space on small files.',
+        citation: 'Operating Systems: Three Easy Pieces · Chapter 40, p.4',
+      },
+    ],
+    []
+  )
+
   // Quiz Demo State
-  const [quizChoice, setQuizChoice] = useState<number | null>(null)
-  const [quizSubmitted, setQuizSubmitted] = useState(false)
+  const [weakSpotOnly, setWeakSpotOnly] = useState(false)
+  const activeQuizQuestions = useMemo(() => {
+    return weakSpotOnly ? allQuizQuestions.filter((q) => q.tagType === 'weak') : allQuizQuestions
+  }, [allQuizQuestions, weakSpotOnly])
+
+  const [currentQuizIdx, setCurrentQuizIdx] = useState(0)
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({})
+  const [quizSubmittedMap, setQuizSubmittedMap] = useState<Record<number, boolean>>({})
+  const [quizFinished, setQuizFinished] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
+
+  const currentQuestion = activeQuizQuestions[currentQuizIdx] || activeQuizQuestions[0]
+  const isQuestionSubmitted = Boolean(quizSubmittedMap[currentQuizIdx])
+  const selectedChoice = quizAnswers[currentQuizIdx] ?? null
+  const isChoiceCorrect =
+    selectedChoice !== null ? Boolean(currentQuestion?.options[selectedChoice]?.correct) : false
+
+  const totalScore = useMemo(() => {
+    let score = 0
+    activeQuizQuestions.forEach((q, idx) => {
+      const chosen = quizAnswers[idx]
+      if (chosen !== undefined && q.options[chosen]?.correct) {
+        score++
+      }
+    })
+    return score
+  }, [activeQuizQuestions, quizAnswers])
 
   const sampleQuestions = [
     {
@@ -53,20 +193,6 @@ export function InteractiveWorkbench() {
         '"Receipt of three duplicate ACKs is taken as an indication that the packet was lost rather than simply delayed. TCP then performs a fast retransmit before the timer expires."',
     },
   ]
-
-  const quizQuestion = {
-    title: 'Operating Systems & Architecture',
-    question: 'In a multi-level page table architecture, what is the primary purpose of the Translation Lookaside Buffer (TLB)?',
-    options: [
-      { id: 0, text: 'To store the operating system kernel code in fast SRAM cache' },
-      { id: 1, text: 'To cache recent virtual-to-physical address translations and avoid multi-step RAM lookups', correct: true },
-      { id: 2, text: 'To compress inactive memory pages before swapping them to SSD disk storage' },
-      { id: 3, text: 'To synchronize memory writes between multiple CPU cores in real-time' },
-    ],
-    explanation:
-      'Without a TLB, each memory access in a 4-level page table requires 4 separate memory accesses just to translate the address. The TLB is an associative high-speed hardware cache that resolves translations in ~1 CPU clock cycle.',
-    citation: 'Silberschatz & Galvin · OS Concepts p.360',
-  }
 
   // Handle streaming simulation for Ask Demo
   useEffect(() => {
@@ -101,19 +227,51 @@ export function InteractiveWorkbench() {
   }
 
   const handleSelectQuiz = (idx: number) => {
-    if (quizSubmitted) return
-    setQuizChoice(idx)
-    setQuizSubmitted(true)
-    if (quizQuestion.options[idx]?.correct) {
+    if (isQuestionSubmitted) return
+    setQuizAnswers((prev) => ({ ...prev, [currentQuizIdx]: idx }))
+    setQuizSubmittedMap((prev) => ({ ...prev, [currentQuizIdx]: true }))
+    if (currentQuestion.options[idx]?.correct) {
       setShowCelebration(true)
       setTimeout(() => setShowCelebration(false), 2400)
     }
   }
 
-  const resetQuiz = () => {
-    setQuizChoice(null)
-    setQuizSubmitted(false)
+  const handleRetryCurrentQuestion = () => {
+    setQuizAnswers((prev) => {
+      const next = { ...prev }
+      delete next[currentQuizIdx]
+      return next
+    })
+    setQuizSubmittedMap((prev) => {
+      const next = { ...prev }
+      delete next[currentQuizIdx]
+      return next
+    })
     setShowCelebration(false)
+  }
+
+  const handleNextQuestion = () => {
+    if (currentQuizIdx < activeQuizQuestions.length - 1) {
+      setCurrentQuizIdx((prev) => prev + 1)
+      setShowCelebration(false)
+    } else {
+      setQuizFinished(true)
+      setShowCelebration(false)
+    }
+  }
+
+  const handleResetQuiz = (drillWeakSpots = false) => {
+    setWeakSpotOnly(drillWeakSpots)
+    setCurrentQuizIdx(0)
+    setQuizAnswers({})
+    setQuizSubmittedMap({})
+    setQuizFinished(false)
+    setShowCelebration(false)
+  }
+
+  const handleDrillWeakSpotsFromProgress = () => {
+    handleResetQuiz(true)
+    setActiveTab('quiz')
   }
 
   return (
@@ -303,79 +461,282 @@ export function InteractiveWorkbench() {
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
               className="workbench-screen"
             >
-              <div className="quiz-demo-card">
-                <div className="quiz-card-header">
-                  <span className="quiz-topic-tag">{quizQuestion.title}</span>
-                  <span className="quiz-diag-badge">DIAGNOSTIC QUESTION 1 OF 5</span>
-                </div>
+              {quizFinished ? (
+                <div className="quiz-results-card">
+                  <div className="quiz-results-hero">
+                    <div className="quiz-score-badge">
+                      <span className="quiz-score-num">{totalScore}</span>
+                      <span className="quiz-score-denom">OF {activeQuizQuestions.length}</span>
+                    </div>
+                    <div className="quiz-results-title-group">
+                      <h3 className="quiz-results-headline">
+                        {totalScore === activeQuizQuestions.length
+                          ? 'Outstanding Mastery!'
+                          : totalScore >= Math.ceil(activeQuizQuestions.length / 2)
+                          ? 'Diagnostic Complete'
+                          : 'Review Recommended'}
+                      </h3>
+                      <p className="quiz-results-sub">
+                        You scored {Math.round((totalScore / activeQuizQuestions.length) * 100)}% (+{totalScore * 25} XP). Gist has logged your weak spots to optimize future spaced active recall.
+                      </p>
+                    </div>
+                  </div>
 
-                <h3 className="quiz-question-text">{quizQuestion.question}</h3>
+                  <div className="quiz-results-breakdown">
+                    {activeQuizQuestions.map((q, idx) => {
+                      const ans = quizAnswers[idx]
+                      const wasCorrect = ans !== undefined && q.options[ans]?.correct
+                      return (
+                        <div key={q.id} className="quiz-breakdown-row">
+                          <div className="quiz-breakdown-left">
+                            {wasCorrect ? (
+                              <CheckCircle2 size={16} className="text-success" />
+                            ) : (
+                              <XCircle size={16} className="text-danger" />
+                            )}
+                            <span className="quiz-breakdown-title">
+                              Q{idx + 1}: {q.title}
+                            </span>
+                          </div>
+                          <div className="quiz-breakdown-right">
+                            <span
+                              className={`topic-badge ${
+                                q.tagType === 'weak'
+                                  ? 'badge-weak'
+                                  : q.tagType === 'mid'
+                                  ? 'badge-mid'
+                                  : 'badge-strong'
+                              }`}
+                            >
+                              {q.tag}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
 
-                <div className="quiz-options-list">
-                  {quizQuestion.options.map((option, idx) => {
-                    const isSelected = quizChoice === idx
-                    let stateClass = ''
-                    if (quizSubmitted) {
-                      if (option.correct) stateClass = 'opt-correct'
-                      else if (isSelected && !option.correct) stateClass = 'opt-wrong'
-                      else stateClass = 'opt-dimmed'
-                    }
+                  <div className="quiz-results-actions">
+                    <button
+                      type="button"
+                      className="quiz-primary-btn"
+                      onClick={() => {
+                        setQuizFinished(false)
+                        setCurrentQuizIdx(0)
+                      }}
+                    >
+                      <CircleHelp size={14} />
+                      <span>Review Answers</span>
+                    </button>
 
-                    return (
-                      <motion.button
-                        key={option.id}
+                    <button
+                      type="button"
+                      className="quiz-secondary-btn"
+                      onClick={() => handleResetQuiz(false)}
+                    >
+                      <RotateCcw size={13} />
+                      <span>Retake Full Quiz</span>
+                    </button>
+
+                    {!weakSpotOnly && (
+                      <button
                         type="button"
-                        whileHover={!quizSubmitted ? { transform: 'translateX(4px)' } : {}}
-                        whileTap={!quizSubmitted ? { transform: 'scale(0.99)' } : {}}
-                        className={`quiz-option-btn ${isSelected ? 'selected' : ''} ${stateClass}`}
-                        onClick={() => handleSelectQuiz(idx)}
-                        disabled={quizSubmitted}
+                        className="quiz-secondary-btn"
+                        onClick={() => handleResetQuiz(true)}
                       >
-                        <span className="option-letter">{String.fromCharCode(65 + idx)}</span>
-                        <span className="option-text">{option.text}</span>
-                        {quizSubmitted && option.correct && (
-                          <CheckCircle2 size={16} className="text-success opt-icon" />
-                        )}
-                        {quizSubmitted && isSelected && !option.correct && (
-                          <XCircle size={16} className="text-danger opt-icon" />
-                        )}
-                      </motion.button>
-                    )
-                  })}
-                </div>
+                        <RefreshCw size={13} />
+                        <span>Drill Weak Spots (2 Qs)</span>
+                      </button>
+                    )}
 
-                {quizSubmitted && (
-                  <motion.div
-                    initial={{ opacity: 0, transform: 'translateY(6px)' }}
-                    animate={{ opacity: 1, transform: 'translateY(0px)' }}
-                    transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                    className="quiz-feedback-box"
-                  >
-                    <div className="feedback-head">
-                      {quizChoice === 1 ? (
-                        <div className="feedback-status success">
-                          <CheckCircle2 size={15} />
-                          <span>Correct! +25 Mastery</span>
-                        </div>
+                    <button
+                      type="button"
+                      className="quiz-secondary-btn"
+                      onClick={() => setActiveTab('progress')}
+                    >
+                      <ChartColumn size={13} />
+                      <span>View Weak-Spot Tracker</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="quiz-demo-card">
+                  <div className="quiz-card-header">
+                    <div className="quiz-header-left">
+                      <span className="quiz-topic-tag">{currentQuestion.title}</span>
+                      <span className="quiz-diag-badge">
+                        {weakSpotOnly
+                          ? `WEAK-SPOT DRILL QUESTION ${currentQuizIdx + 1} OF ${activeQuizQuestions.length}`
+                          : `DIAGNOSTIC QUESTION ${currentQuizIdx + 1} OF ${activeQuizQuestions.length}`}
+                      </span>
+                    </div>
+
+                    <div className="quiz-header-actions">
+                      {weakSpotOnly ? (
+                        <button
+                          type="button"
+                          className="quiz-mode-switch-btn"
+                          onClick={() => handleResetQuiz(false)}
+                          title="Switch to full 5-question diagnostic"
+                        >
+                          Full 5-Question Quiz
+                        </button>
                       ) : (
-                        <div className="feedback-status wrong">
-                          <XCircle size={15} />
-                          <span>Incorrect · Flagged as Weak Spot</span>
-                        </div>
+                        <button
+                          type="button"
+                          className="quiz-mode-switch-btn"
+                          onClick={() => handleResetQuiz(true)}
+                          title="Focus only on flagged weak spots"
+                        >
+                          Focus Weak Spots (2 Qs)
+                        </button>
                       )}
-                      <button type="button" className="quiz-retry-btn" onClick={resetQuiz}>
-                        <RefreshCw size={12} />
-                        <span>Try Again</span>
+                      <button
+                        type="button"
+                        className="quiz-retry-btn"
+                        onClick={() => handleResetQuiz(weakSpotOnly)}
+                        title="Restart quiz"
+                      >
+                        <RotateCcw size={12} />
+                        <span>Restart</span>
                       </button>
                     </div>
-                    <p className="feedback-explanation">{quizQuestion.explanation}</p>
-                    <div className="feedback-citation">
-                      <FileText size={12} />
-                      <span>Source: {quizQuestion.citation}</span>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
+                  </div>
+
+                  {/* Stepper question selector */}
+                  <div className="quiz-stepper" role="navigation" aria-label="Question selector">
+                    {activeQuizQuestions.map((q, idx) => {
+                      const isCurrent = currentQuizIdx === idx
+                      const isAnswered = quizSubmittedMap[idx]
+                      const ans = quizAnswers[idx]
+                      const wasCorrect = ans !== undefined && q.options[ans]?.correct
+
+                      let statusClass = ''
+                      if (isAnswered) {
+                        statusClass = wasCorrect ? 'correct' : 'wrong'
+                      }
+
+                      return (
+                        <button
+                          key={q.id}
+                          type="button"
+                          className={`quiz-step-btn ${isCurrent ? 'active' : ''} ${statusClass}`}
+                          onClick={() => {
+                            setCurrentQuizIdx(idx)
+                            setShowCelebration(false)
+                          }}
+                          aria-label={`Question ${idx + 1}: ${q.title}`}
+                        >
+                          <span className="quiz-stepper-dot" />
+                          <span>Q{idx + 1}</span>
+                          {isAnswered && wasCorrect && <Check size={11} className="text-success" />}
+                          {isAnswered && !wasCorrect && <XCircle size={11} className="text-danger" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <h3 className="quiz-question-text">{currentQuestion.question}</h3>
+
+                  <div className="quiz-options-list">
+                    {currentQuestion.options.map((option, idx) => {
+                      const isSelected = selectedChoice === idx
+                      let stateClass = ''
+                      if (isQuestionSubmitted) {
+                        if (option.correct) stateClass = 'opt-correct'
+                        else if (isSelected && !option.correct) stateClass = 'opt-wrong'
+                        else stateClass = 'opt-dimmed'
+                      }
+
+                      return (
+                        <motion.button
+                          key={option.id}
+                          type="button"
+                          whileHover={!isQuestionSubmitted ? { x: 4 } : {}}
+                          whileTap={!isQuestionSubmitted ? { scale: 0.99 } : {}}
+                          className={`quiz-option-btn ${isSelected ? 'selected' : ''} ${stateClass}`}
+                          onClick={() => handleSelectQuiz(idx)}
+                          disabled={isQuestionSubmitted}
+                        >
+                          <span className="option-letter">{String.fromCharCode(65 + idx)}</span>
+                          <span className="option-text">{option.text}</span>
+                          {isQuestionSubmitted && option.correct && (
+                            <CheckCircle2 size={16} className="text-success opt-icon" />
+                          )}
+                          {isQuestionSubmitted && isSelected && !option.correct && (
+                            <XCircle size={16} className="text-danger opt-icon" />
+                          )}
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+
+                  {isQuestionSubmitted && (
+                    <motion.div
+                      initial={{ opacity: 0, transform: 'translateY(6px)' }}
+                      animate={{ opacity: 1, transform: 'translateY(0px)' }}
+                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                      className="quiz-feedback-box"
+                    >
+                      <div className="feedback-head">
+                        {isChoiceCorrect ? (
+                          <div className="feedback-status success">
+                            <CheckCircle2 size={15} />
+                            <span>Correct! +25 Mastery</span>
+                          </div>
+                        ) : (
+                          <div className="feedback-status wrong">
+                            <XCircle size={15} />
+                            <span>Incorrect · Flagged as Weak Spot</span>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="quiz-retry-btn"
+                          onClick={handleRetryCurrentQuestion}
+                        >
+                          <RefreshCw size={12} />
+                          <span>Try Again</span>
+                        </button>
+                      </div>
+                      <p className="feedback-explanation">{currentQuestion.explanation}</p>
+                      <div className="feedback-citation">
+                        <FileText size={12} />
+                        <span>Source: {currentQuestion.citation}</span>
+                      </div>
+
+                      <div className="quiz-feedback-actions">
+                        {currentQuizIdx > 0 && (
+                          <button
+                            type="button"
+                            className="quiz-secondary-btn"
+                            onClick={() => {
+                              setCurrentQuizIdx((prev) => prev - 1)
+                              setShowCelebration(false)
+                            }}
+                          >
+                            <ChevronLeft size={13} />
+                            <span>Previous</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="quiz-primary-btn"
+                          onClick={handleNextQuestion}
+                        >
+                          <span>
+                            {currentQuizIdx < activeQuizQuestions.length - 1
+                              ? 'Next Question'
+                              : 'View Diagnostic Results'}
+                          </span>
+                          <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -455,7 +816,7 @@ export function InteractiveWorkbench() {
                     <button
                       type="button"
                       className="quiz-weak-btn"
-                      onClick={() => setActiveTab('quiz')}
+                      onClick={handleDrillWeakSpotsFromProgress}
                     >
                       <span>Drill Weak Spots (2 Questions)</span>
                       <ArrowRight size={14} />
