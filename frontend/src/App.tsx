@@ -9,7 +9,7 @@ import {
   usePriorityMatrix,
 } from './hooks/useApiData'
 import { useModels } from './hooks/useModels'
-import { useTheme } from './hooks/useTheme'
+import { useTheme, type ThemePreference } from './hooks/useTheme'
 import { useChatSessions } from './hooks/useChatSessions'
 import { NAV_ITEMS, type ScreenId } from './lib/nav'
 import { AskScreen } from './screens/AskScreen'
@@ -65,12 +65,23 @@ function getScreenFromLocation(): ScreenId {
   }
 }
 
-export default function App() {
-  const [screen, setScreen] = useState<ScreenId>(getScreenFromLocation)
+interface WorkspaceAppProps {
+  screen: ScreenId
+  navigate: (next: ScreenId) => void
+  preference: ThemePreference
+  setPreference: (next: ThemePreference) => void
+  quizIntent: QuizIntent | null
+  setQuizIntent: (intent: QuizIntent | null) => void
+}
 
-  const [quizIntent, setQuizIntent] = useState<QuizIntent | null>(null)
-
-  const { preference, setPreference } = useTheme()
+function WorkspaceApp({
+  screen,
+  navigate,
+  preference,
+  setPreference,
+  quizIntent,
+  setQuizIntent,
+}: WorkspaceAppProps) {
   const {
     sessions,
     activeId: activeSessionId,
@@ -142,63 +153,6 @@ export default function App() {
     refreshAnalysis,
     refreshMatrix,
   ])
-
-  useEffect(() => {
-    if (screen === 'landing') {
-      document.title = 'Gist — Private, Offline Exam Study Companion'
-      if (window.location.pathname === '/ai') {
-        window.history.replaceState(null, '', '/')
-      }
-    } else {
-      const item = NAV_ITEMS.find((entry) => entry.id === screen)
-      document.title = item ? `${item.label} · Gist` : 'Gist'
-      if (window.location.pathname !== '/ai') {
-        window.history.replaceState(null, '', `/ai#${screen}`)
-      } else if (window.location.hash.replace(/^#\/?/, '') !== screen) {
-        window.location.hash = screen
-      }
-    }
-  }, [screen])
-
-  // Listen to popstate and hash changes for browser forward/backward navigation
-  useEffect(() => {
-    const handleUrlChange = () => {
-      setScreen(getScreenFromLocation())
-    }
-    window.addEventListener('popstate', handleUrlChange)
-    window.addEventListener('hashchange', handleUrlChange)
-    return () => {
-      window.removeEventListener('popstate', handleUrlChange)
-      window.removeEventListener('hashchange', handleUrlChange)
-    }
-  }, [])
-
-  function navigate(next: ScreenId) {
-    // Any manual navigation clears a pending "quiz my weak spots" request.
-    if (next !== 'quiz') setQuizIntent(null)
-    setScreen(next)
-    if (next === 'landing') {
-      if (window.location.pathname !== '/') {
-        window.history.pushState(null, '', '/')
-      } else {
-        window.location.hash = ''
-      }
-    } else {
-      const targetUrl = `/ai#${next}`
-      if (window.location.pathname !== '/ai' || window.location.hash !== `#${next}`) {
-        window.history.pushState(null, '', targetUrl)
-      }
-    }
-  }
-
-  if (screen === 'landing') {
-    return (
-      <LandingScreen
-        preference={preference}
-        onSelectTheme={setPreference}
-      />
-    )
-  }
 
   return (
     <AppShell
@@ -277,15 +231,15 @@ export default function App() {
           }}
           onStartHighYieldQuiz={() => {
             setQuizIntent({ useHighYield: true })
-            setScreen('quiz')
+            navigate('quiz')
           }}
           onStartTopicQuiz={(topic) => {
             setQuizIntent({ useWeakSpots: false, topic })
-            setScreen('quiz')
+            navigate('quiz')
           }}
           onAskQuestion={(text) => {
             createSession([{ id: `turn-${Date.now()}`, role: 'user', text }])
-            setScreen('ask')
+            navigate('ask')
           }}
         />
       ) : null}
@@ -299,15 +253,15 @@ export default function App() {
           onRefresh={retryBackend}
           onStartWeakQuiz={() => {
             setQuizIntent({ useWeakSpots: true })
-            setScreen('quiz')
+            navigate('quiz')
           }}
           onStartHighYieldQuiz={() => {
             setQuizIntent({ useHighYield: true })
-            setScreen('quiz')
+            navigate('quiz')
           }}
           onStartTopicQuiz={(topic) => {
             setQuizIntent({ useWeakSpots: false, topic })
-            setScreen('quiz')
+            navigate('quiz')
           }}
           onNavigate={navigate}
         />
@@ -331,3 +285,78 @@ export default function App() {
     </AppShell>
   )
 }
+
+export default function App() {
+  const [screen, setScreen] = useState<ScreenId>(getScreenFromLocation)
+  const [quizIntent, setQuizIntent] = useState<QuizIntent | null>(null)
+  const { preference, setPreference } = useTheme()
+
+  useEffect(() => {
+    if (screen === 'landing') {
+      document.title = 'Gist — Private, Offline Exam Study Companion'
+      if (window.location.pathname === '/ai') {
+        window.history.replaceState(null, '', '/')
+      }
+    } else {
+      const item = NAV_ITEMS.find((entry) => entry.id === screen)
+      document.title = item ? `${item.label} · Gist` : 'Gist'
+      if (window.location.pathname !== '/ai') {
+        window.history.replaceState(null, '', `/ai#${screen}`)
+      } else if (window.location.hash.replace(/^#\/?/, '') !== screen) {
+        window.location.hash = screen
+      }
+    }
+  }, [screen])
+
+  // Listen to popstate and hash changes for browser forward/backward navigation
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setScreen(getScreenFromLocation())
+    }
+    window.addEventListener('popstate', handleUrlChange)
+    window.addEventListener('hashchange', handleUrlChange)
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange)
+      window.removeEventListener('hashchange', handleUrlChange)
+    }
+  }, [])
+
+  function navigate(next: ScreenId) {
+    // Any manual navigation clears a pending "quiz my weak spots" request.
+    if (next !== 'quiz') setQuizIntent(null)
+    setScreen(next)
+    if (next === 'landing') {
+      if (window.location.pathname !== '/') {
+        window.history.pushState(null, '', '/')
+      } else {
+        window.location.hash = ''
+      }
+    } else {
+      const targetUrl = `/ai#${next}`
+      if (window.location.pathname !== '/ai' || window.location.hash !== `#${next}`) {
+        window.history.pushState(null, '', targetUrl)
+      }
+    }
+  }
+
+  if (screen === 'landing') {
+    return (
+      <LandingScreen
+        preference={preference}
+        onSelectTheme={setPreference}
+      />
+    )
+  }
+
+  return (
+    <WorkspaceApp
+      screen={screen}
+      navigate={navigate}
+      preference={preference}
+      setPreference={setPreference}
+      quizIntent={quizIntent}
+      setQuizIntent={setQuizIntent}
+    />
+  )
+}
+
