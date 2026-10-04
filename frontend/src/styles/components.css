@@ -2369,3 +2369,167 @@
   margin-top: 2px;
   overflow-wrap: anywhere;
 }
+
+/* =========================================================================
+   Mock Exam Mode ("Grill Me") Animation & Utility Styles
+   ========================================================================= */
+
+.pulse-fast {
+  animation: pulse-fast-kf 0.8s infinite ease-in-out;
+}
+
+@keyframes pulse-fast-kf {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.08);
+  }
+}
+
+.pulse-slow {
+  animation: pulse-slow-kf 2s infinite ease-in-out;
+}
+
+@keyframes pulse-slow-kf {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.04);
+  }
+}
+
+/* =========================================================================
+   Past Quiz Attempt Review Modal & Drawer Styles
+   ========================================================================= */
+
+.quiz-review-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: modal-fade-in 180ms var(--ease-out);
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.quiz-review-modal {
+  position: relative;
+  width: min(780px, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  animation: modal-slide-in 200ms var(--ease-out);
+}
+
+:root[data-theme='light'] .quiz-review-modal {
+  box-shadow: 0 20px 48px rgba(28, 43, 51, 0.18);
+}
+
+@keyframes modal-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.quiz-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.quiz-review-header__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quiz-review-body {
+  padding: var(--space-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.quiz-review-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.quiz-review-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: border-color var(--dur-hover) var(--ease-standard);
+}
+
+.quiz-review-card--correct {
+  border-left: 3px solid var(--success);
+}
+
+.quiz-review-card--incorrect {
+  border-left: 3px solid var(--danger);
+}
+
+.quiz-review-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-soft);
+  gap: var(--space-3);
+}
+
+.history-item--clickable {
+  cursor: pointer;
+}
+
+.history-item--clickable:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+

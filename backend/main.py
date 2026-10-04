@@ -28,10 +28,19 @@ from backend.quiz import (
     QuizSubmission,
     QuizResult
 )
+from backend.exam import (
+    generate_mock_exam,
+    grade_mock_exam_submission,
+    MockExam,
+    MockExamSubmission,
+    MockExamResult
+)
 from backend.tracker import (
     init_db,
     get_progress_summary,
     get_topic_statistics,
+    get_quiz_attempt_details,
+    get_topic_history,
     reset_tracker,
     list_past_papers,
     get_past_paper,
@@ -100,6 +109,20 @@ class QuizGenerateRequest(BaseModel):
     num_questions: int = Field(default=5, ge=1, le=20)
     use_weak_spots: bool = False
     use_high_yield: bool = False
+    fast_mode: bool = False
+
+
+class ExamGenerateRequest(BaseModel):
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+    duration_minutes: int = Field(default=30, ge=5, le=180)
+    total_marks: float = Field(default=50.0, ge=10.0, le=200.0)
+    num_questions: int = Field(default=8, ge=3, le=30)
+    use_weak_spots: bool = False
+    use_high_yield: bool = False
+    fast_mode: bool = False
+
+
 
 
 class UploadResponse(BaseModel):
@@ -355,14 +378,15 @@ def select_model(request: SelectModelRequest):
 def generate_quiz_endpoint(request: QuizGenerateRequest):
     """
     Generate a Pydantic-validated JSON quiz from indexed notes or past paper questions.
-    Supports targeting weak spots, high-yield exam priorities, or specific topics.
+    Supports targeting weak spots, high-yield exam priorities, fast mode, or specific topics.
     """
     try:
         quiz = generate_quiz(
             topic=request.topic,
             num_questions=request.num_questions,
             use_weak_spots=request.use_weak_spots,
-            use_high_yield=request.use_high_yield
+            use_high_yield=request.use_high_yield,
+            fast_mode=request.fast_mode
         )
         return quiz
     except ConnectionError as e:
@@ -397,6 +421,108 @@ def submit_quiz_endpoint(submission: QuizSubmission):
         raise HTTPException(status_code=500, detail=f"Failed to grade quiz submission: {str(e)}")
 
 
+@app.get("/quiz/attempts/{quiz_id}", response_model=QuizResult)
+def get_quiz_attempt_endpoint(quiz_id: str):
+    """
+    Retrieve graded question details, student answers, explanations, and scores
+    for a specific past quiz attempt.
+    """
+    attempt = get_quiz_attempt_details(quiz_id)
+    if not attempt:
+        raise HTTPException(status_code=404, detail=f"Quiz attempt '{quiz_id}' not found.")
+    return attempt
+
+
+# =========================================================================
+# Mock Exam ("Grill Me") Endpoints
+# =========================================================================
+
+@app.get("/exam/presets")
+def get_exam_presets():
+    """Return pre-configured mock exam tier templates."""
+    return {
+        "presets": [
+            {
+                "id": "sprint",
+                "name": "Quick Grill",
+                "tagline": "Rapid-fire precision check",
+                "duration_minutes": 15,
+                "total_marks": 25,
+                "num_questions": 5,
+                "description": "5 targeted questions covering core formulas, concepts, and definitions under 15 minutes."
+            },
+            {
+                "id": "standard",
+                "name": "Standard Mock",
+                "tagline": "Midterm-depth balanced exam",
+                "duration_minutes": 30,
+                "total_marks": 50,
+                "num_questions": 8,
+                "description": "8 balanced questions spanning theory, problem-solving, and analysis across all uploaded topics."
+            },
+            {
+                "id": "comprehensive",
+                "name": "Finals Marathon",
+                "tagline": "Full high-stakes examination simulation",
+                "duration_minutes": 60,
+                "total_marks": 100,
+                "num_questions": 15,
+                "description": "15 rigorous questions weighted across high-yield past paper topics and comprehensive theory."
+            }
+        ]
+    }
+
+
+@app.post("/exam/generate", response_model=MockExam)
+def generate_mock_exam_endpoint(request: ExamGenerateRequest):
+    """
+    Generate a timed multi-topic mock examination with mark allocations.
+    """
+    try:
+        exam = generate_mock_exam(
+            subject=request.subject,
+            topic=request.topic,
+            duration_minutes=request.duration_minutes,
+            total_marks=request.total_marks,
+            num_questions=request.num_questions,
+            use_weak_spots=request.use_weak_spots,
+            use_high_yield=request.use_high_yield,
+            fast_mode=request.fast_mode
+        )
+        return exam
+    except ConnectionError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Local LLM service (Ollama) is currently unreachable: {str(e)}. Please ensure Ollama is running ('ollama serve')."
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        err_msg = str(e)
+        if any(kw in err_msg.lower() for kw in ["connect", "connection", "refused", "offline", "unreachable"]):
+            raise HTTPException(
+                status_code=503,
+                detail=f"Local LLM service (Ollama) is currently unreachable: {err_msg}. Please ensure Ollama is running ('ollama serve')."
+            )
+        raise HTTPException(status_code=500, detail=f"Failed to generate mock exam: {err_msg}")
+
+
+@app.post("/exam/submit", response_model=MockExamResult)
+def submit_mock_exam_endpoint(submission: MockExamSubmission):
+    """
+    Submit mock exam answers for rigorous automated grading (MCQs + conceptual/problem multi-mark evaluation),
+    calculating individual question marks and generating a comprehensive score breakdown by topic.
+    """
+    try:
+        result = grade_mock_exam_submission(submission)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to grade mock exam: {str(e)}")
+
+
+
 @app.get("/progress")
 def get_progress_dashboard():
     """
@@ -412,6 +538,17 @@ def get_topics():
     """Get performance statistics for each individual topic."""
     topics = get_topic_statistics()
     return {"topics": topics}
+
+
+@app.get("/topics/{topic}/history", response_model=QuizResult)
+def get_topic_history_endpoint(topic: str):
+    """
+    Retrieve question logs, student answers, and examiner remarks for a specific topic.
+    """
+    history = get_topic_history(topic)
+    if not history:
+        raise HTTPException(status_code=404, detail=f"No quiz history found for topic '{topic}'.")
+    return history
 
 
 # =========================================================================

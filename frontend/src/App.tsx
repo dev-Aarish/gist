@@ -16,6 +16,7 @@ import { AskScreen } from './screens/AskScreen'
 import { NotesScreen } from './screens/NotesScreen'
 import { ProgressScreen } from './screens/ProgressScreen'
 import { QuizScreen, type QuizIntent } from './screens/QuizScreen'
+import { GrillScreen, type GrillIntent } from './screens/GrillScreen'
 import { PastPaperScreen } from './screens/PastPaperScreen'
 import { LandingScreen } from './screens/LandingScreen'
 
@@ -29,6 +30,7 @@ function getScreenFromLocation(): ScreenId {
       const subPath = pathname.replace(/^\/ai\/?/, '')
       if (
         subPath === 'quiz' ||
+        subPath === 'grill' ||
         subPath === 'progress' ||
         subPath === 'notes' ||
         subPath === 'ask' ||
@@ -38,6 +40,7 @@ function getScreenFromLocation(): ScreenId {
       }
       if (
         hash === 'quiz' ||
+        hash === 'grill' ||
         hash === 'progress' ||
         hash === 'notes' ||
         hash === 'ask' ||
@@ -52,6 +55,7 @@ function getScreenFromLocation(): ScreenId {
     if (
       hash === 'ask' ||
       hash === 'quiz' ||
+      hash === 'grill' ||
       hash === 'progress' ||
       hash === 'notes' ||
       hash === 'papers'
@@ -65,6 +69,7 @@ function getScreenFromLocation(): ScreenId {
   }
 }
 
+
 interface WorkspaceAppProps {
   screen: ScreenId
   navigate: (next: ScreenId) => void
@@ -72,6 +77,8 @@ interface WorkspaceAppProps {
   setPreference: (next: ThemePreference) => void
   quizIntent: QuizIntent | null
   setQuizIntent: (intent: QuizIntent | null) => void
+  grillIntent: GrillIntent | null
+  setGrillIntent: (intent: GrillIntent | null) => void
 }
 
 function WorkspaceApp({
@@ -81,6 +88,8 @@ function WorkspaceApp({
   setPreference,
   quizIntent,
   setQuizIntent,
+  grillIntent,
+  setGrillIntent,
 }: WorkspaceAppProps) {
   const {
     sessions,
@@ -213,6 +222,29 @@ function WorkspaceApp({
         />
       ) : null}
 
+      {screen === 'grill' ? (
+        <GrillScreen
+          documents={documents}
+          intent={grillIntent}
+          offline={offline}
+          offlineMessage={backendError}
+          onRetry={retryBackend}
+          onIntentConsumed={() => setGrillIntent(null)}
+          onProgressChanged={() => {
+            void refreshProgress()
+            void refreshMatrix()
+          }}
+          onAskQuestion={(prompt) => {
+            createSession([{ id: `turn-${Date.now()}`, role: 'user', text: prompt }])
+            navigate('ask')
+          }}
+          onStartQuiz={(topic) => {
+            setQuizIntent({ useWeakSpots: false, topic })
+            navigate('quiz')
+          }}
+        />
+      ) : null}
+
       {screen === 'papers' ? (
         <PastPaperScreen
           analysis={pastPaperAnalysis}
@@ -236,6 +268,13 @@ function WorkspaceApp({
           onStartTopicQuiz={(topic) => {
             setQuizIntent({ useWeakSpots: false, topic })
             navigate('quiz')
+          }}
+          onStartMockExam={(opts) => {
+            setGrillIntent({
+              subject: opts?.subject,
+              useHighYield: opts?.useHighYield ?? true,
+            })
+            navigate('grill')
           }}
           onAskQuestion={(text) => {
             createSession([{ id: `turn-${Date.now()}`, role: 'user', text }])
@@ -289,6 +328,7 @@ function WorkspaceApp({
 export default function App() {
   const [screen, setScreen] = useState<ScreenId>(getScreenFromLocation)
   const [quizIntent, setQuizIntent] = useState<QuizIntent | null>(null)
+  const [grillIntent, setGrillIntent] = useState<GrillIntent | null>(null)
   const { preference, setPreference } = useTheme()
 
   useEffect(() => {
@@ -322,8 +362,9 @@ export default function App() {
   }, [])
 
   function navigate(next: ScreenId) {
-    // Any manual navigation clears a pending "quiz my weak spots" request.
+    // Any manual navigation clears a pending "quiz/grill" request.
     if (next !== 'quiz') setQuizIntent(null)
+    if (next !== 'grill') setGrillIntent(null)
     setScreen(next)
     if (next === 'landing') {
       if (window.location.pathname !== '/') {
@@ -356,7 +397,10 @@ export default function App() {
       setPreference={setPreference}
       quizIntent={quizIntent}
       setQuizIntent={setQuizIntent}
+      grillIntent={grillIntent}
+      setGrillIntent={setGrillIntent}
     />
   )
 }
+
 

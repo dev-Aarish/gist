@@ -58,6 +58,91 @@ export interface QuizResult {
   recorded_at: string
 }
 
+// =========================================================================
+// Mock Exam Mode ("Grill Me") Types
+// =========================================================================
+
+export type ExamQuestionType = 'mcq' | 'short_answer' | 'long_answer'
+
+export interface MockExamQuestion {
+  id: string
+  question_number: string
+  type: ExamQuestionType
+  marks: number
+  topic: string
+  subtopic?: string | null
+  question: string
+  options: string[]
+  correct_answer: string
+  explanation: string
+  source_file?: string | null
+}
+
+export interface MockExam {
+  exam_id: string
+  title: string
+  subject: string
+  duration_minutes: number
+  total_marks: number
+  total_questions: number
+  questions: MockExamQuestion[]
+  created_at: string
+  is_adaptive: boolean
+}
+
+export interface GradedExamQuestion {
+  question_id: string
+  question_number: string
+  question_text: string
+  question_type: string
+  marks_possible: number
+  marks_awarded: number
+  is_correct: boolean
+  user_answer: string
+  correct_answer: string
+  feedback: string
+  topic: string
+  subtopic?: string | null
+}
+
+export interface TopicBreakdownItem {
+  topic: string
+  question_count: number
+  marks_possible: number
+  marks_awarded: number
+  score_percentage: number
+  status: 'Mastered' | 'Needs Review' | 'Weak Spot'
+  feedback_summary?: string | null
+}
+
+export interface MockExamResult {
+  exam_id: string
+  title: string
+  subject: string
+  duration_minutes: number
+  time_taken_seconds: number
+  total_marks_possible: number
+  total_marks_awarded: number
+  score_percentage: number
+  performance_tier: string
+  topic_breakdown: TopicBreakdownItem[]
+  graded_questions: GradedExamQuestion[]
+  strongest_topic?: string | null
+  weakest_topic?: string | null
+  recorded_at: string
+}
+
+export interface ExamPreset {
+  id: string
+  name: string
+  tagline: string
+  duration_minutes: number
+  total_marks: number
+  num_questions: number
+  description: string
+}
+
+
 export type MasteryStatus = 'Unattempted' | 'Weak Spot' | 'Needs Review' | 'Mastered'
 
 export interface TopicStat {

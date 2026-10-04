@@ -1,7 +1,7 @@
-import { ChartColumn, CircleHelp, FileText, GraduationCap, MessageSquare } from 'lucide-react'
+import { ChartColumn, CircleHelp, FileText, Flame, GraduationCap, MessageSquare } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export type ScreenId = 'landing' | 'ask' | 'quiz' | 'progress' | 'notes' | 'papers'
+export type ScreenId = 'landing' | 'ask' | 'quiz' | 'grill' | 'papers' | 'progress' | 'notes'
 
 export interface NavItem {
   id: Exclude<ScreenId, 'landing'>
@@ -13,7 +13,9 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { id: 'ask', label: 'Ask', tabLabel: 'Ask', icon: MessageSquare },
   { id: 'quiz', label: 'Quiz', tabLabel: 'Quiz', icon: CircleHelp },
+  { id: 'grill', label: 'Grill Me', tabLabel: 'Grill Me', icon: Flame },
   { id: 'papers', label: 'Past Papers', tabLabel: 'Papers', icon: GraduationCap },
   { id: 'progress', label: 'Progress', tabLabel: 'Progress', icon: ChartColumn },
   { id: 'notes', label: 'Notes', tabLabel: 'Notes', icon: FileText },
 ]
+

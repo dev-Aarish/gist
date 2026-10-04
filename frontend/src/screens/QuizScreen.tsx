@@ -4,6 +4,7 @@ import {
   CircleHelp,
   CircleX,
   RefreshCw,
+  Zap,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { generateQuiz, submitQuiz } from '../lib/api'
@@ -16,6 +17,7 @@ import { QuizCard } from '../components/QuizCard'
 export interface QuizIntent {
   useWeakSpots?: boolean
   useHighYield?: boolean
+  fastMode?: boolean
   topic?: string | null
 }
 
@@ -60,6 +62,7 @@ export function QuizScreen({
   })
   const [topic, setTopic] = useState('')
   const [count, setCount] = useState(5)
+  const [fastMode, setFastMode] = useState(false)
   const [quiz, setQuiz] = useState<Quiz | null>(() => {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY)
@@ -137,6 +140,7 @@ export function QuizScreen({
     numQuestions?: number
     useWeakSpots?: boolean
     useHighYield?: boolean
+    fastMode?: boolean
   }) {
     setStage('generating')
     setError(null)
@@ -150,6 +154,7 @@ export function QuizScreen({
         numQuestions: options.numQuestions ?? 5,
         useWeakSpots: options.useWeakSpots ?? false,
         useHighYield: options.useHighYield ?? false,
+        fastMode: options.fastMode ?? false,
       })
       if (!generated.questions.length) {
         throw new Error('No questions came back. Try a different topic.')
@@ -169,6 +174,7 @@ export function QuizScreen({
     void start({
       useWeakSpots: intent.useWeakSpots,
       useHighYield: intent.useHighYield,
+      fastMode: intent.fastMode,
       topic: intent.topic ?? null,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,27 +308,62 @@ export function QuizScreen({
                 <span className="t-label" id="count-label">
                   Questions
                 </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', height: '40px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '40px' }}>
+                  {[3, 5, 10].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={`btn ${count === preset ? 'btn--secondary' : 'btn--ghost'}`}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '13px',
+                        fontWeight: count === preset ? 600 : 400,
+                        height: '32px',
+                      }}
+                      onClick={() => setCount(preset)}
+                    >
+                      {preset}
+                    </button>
+                  ))}
                   <input
                     type="range"
-                    min="5"
-                    max="20"
+                    min="3"
+                    max="15"
                     value={count}
                     onChange={(e) => setCount(Number(e.target.value))}
                     aria-labelledby="count-label"
-                    style={{ width: '120px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    style={{ width: '80px', accentColor: 'var(--accent)', cursor: 'pointer', marginLeft: '4px' }}
                   />
-                  <span className="tabular" style={{ fontWeight: 500, fontSize: '15px', minWidth: '20px' }}>
+                  <span className="tabular" style={{ fontWeight: 500, fontSize: '14px', minWidth: '16px' }}>
                     {count}
                   </span>
                 </div>
+              </div>
+
+              <div className="field" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className={`btn ${fastMode ? 'btn--secondary' : 'btn--ghost'}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '13px',
+                    height: '40px',
+                  }}
+                  onClick={() => setFastMode(!fastMode)}
+                  title={fastMode ? "Instant mode enabled: uses exam archive questions in <0.1s" : "Click to enable instant mode"}
+                >
+                  <Zap size={14} style={{ color: fastMode ? 'var(--accent, #eab308)' : 'inherit' }} />
+                  <span>{fastMode ? 'Instant Bank' : 'AI Author'}</span>
+                </button>
               </div>
 
               <button
                 type="button"
                 className="btn btn--primary"
                 onClick={() =>
-                  void start({ topic: topic || null, numQuestions: count })
+                  void start({ topic: topic || null, numQuestions: count, fastMode })
                 }
               >
                 Start quiz

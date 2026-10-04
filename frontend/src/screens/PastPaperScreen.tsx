@@ -11,6 +11,7 @@ import {
   RefreshCw,
   BookOpen,
   Layers,
+  Flame,
 } from 'lucide-react'
 import { formatPercent, pluralize, relativeTime } from '../lib/format'
 import {
@@ -45,6 +46,7 @@ export function PastPaperScreen({
   onRefresh,
   onStartHighYieldQuiz,
   onStartTopicQuiz,
+  onStartMockExam,
   onAskQuestion,
 }: {
   analysis: PastPaperAnalysis | null
@@ -58,6 +60,7 @@ export function PastPaperScreen({
   onRefresh: () => void
   onStartHighYieldQuiz: () => void
   onStartTopicQuiz: (topic: string) => void
+  onStartMockExam?: (opts?: { subject?: string; useHighYield?: boolean }) => void
   onAskQuestion: (text: string) => void
 }) {
   const [activeTab, setActiveTab] = useState<'matrix' | 'topics' | 'questions' | 'papers'>('matrix')
@@ -428,7 +431,7 @@ export function PastPaperScreen({
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '2px' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '2px', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn--primary btn--sm"
@@ -438,6 +441,17 @@ export function PastPaperScreen({
               <Sparkles size={14} />
               <span>Practice High-Yield Weak Spots</span>
             </button>
+            {onStartMockExam && (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => onStartMockExam({ subject: selectedSubject !== 'All' ? selectedSubject : undefined, useHighYield: true })}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Flame size={14} style={{ color: 'var(--accent)' }} />
+                <span>Timed Mock Exam</span>
+              </button>
+            )}
             <button
               type="button"
               className="btn btn--secondary btn--sm"

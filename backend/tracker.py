@@ -184,7 +184,7 @@ def get_topic_statistics() -> List[Dict[str, Any]]:
         cursor.execute("""
         SELECT topic_name, total_questions, correct_answers, last_attempted
         FROM topics
-        ORDER BY total_questions DESC
+        ORDER BY CASE WHEN last_attempted IS NULL THEN 1 ELSE 0 END, last_attempted DESC, total_questions DESC
         """)
         rows = cursor.fetchall()
 
@@ -280,9 +280,144 @@ def get_progress_summary() -> Dict[str, Any]:
     }
 
 
+def get_quiz_attempt_details(quiz_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve full question logs and scoring for a specific past quiz attempt.
+    """
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT quiz_id, topic, total_questions, correct_count, score_percentage, created_at
+        FROM quiz_attempts
+        WHERE quiz_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """, (quiz_id,))
+        attempt_row = cursor.fetchone()
+
+        if not attempt_row:
+            cursor.execute("""
+            SELECT quiz_id, topic, created_at
+            FROM question_logs
+            WHERE quiz_id = ?
+            LIMIT 1
+            """, (quiz_id,))
+            q_first = cursor.fetchone()
+            if not q_first:
+                return None
+            topic = q_first["topic"]
+            created_at = q_first["created_at"]
+        else:
+            topic = attempt_row["topic"]
+            created_at = attempt_row["created_at"]
+
+        cursor.execute("""
+        SELECT id, quiz_id, topic, question_text, question_type, user_answer, correct_answer, is_correct, feedback, created_at
+        FROM question_logs
+        WHERE quiz_id = ?
+        ORDER BY id ASC
+        """, (quiz_id,))
+        question_rows = cursor.fetchall()
+
+    graded_questions = []
+    correct_count = 0
+    for q_row in question_rows:
+        is_corr = bool(q_row["is_correct"])
+        if is_corr:
+            correct_count += 1
+        graded_questions.append({
+            "question_id": f"q_{q_row['id']}",
+            "question_text": q_row["question_text"],
+            "question_type": q_row["question_type"],
+            "user_answer": q_row["user_answer"],
+            "correct_answer": q_row["correct_answer"],
+            "is_correct": is_corr,
+            "explanation": q_row["feedback"],
+            "topic": q_row["topic"]
+        })
+
+    total_q = len(graded_questions)
+    if attempt_row:
+        score_percentage = attempt_row["score_percentage"]
+        correct_count = attempt_row["correct_count"]
+        total_q = attempt_row["total_questions"] or total_q
+    else:
+        score_percentage = round((correct_count / total_q * 100) if total_q > 0 else 0.0, 1)
+
+    return {
+        "quiz_id": quiz_id,
+        "topic": topic,
+        "total_questions": total_q,
+        "correct_count": correct_count,
+        "score_percentage": score_percentage,
+        "graded_questions": graded_questions,
+        "recorded_at": created_at
+    }
+
+
+def get_topic_history(topic: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve past question logs, user answers, and examiner remarks for a specific topic.
+    """
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT id, quiz_id, topic, question_text, question_type, user_answer, correct_answer, is_correct, feedback, created_at
+        FROM question_logs
+        WHERE LOWER(topic) = LOWER(?) OR LOWER(topic) LIKE LOWER(?) OR LOWER(?) LIKE '%' || LOWER(topic) || '%'
+        ORDER BY id DESC
+        """, (topic, f"%{topic}%", topic))
+        question_rows = cursor.fetchall()
+
+        if not question_rows:
+            return None
+
+        cursor.execute("""
+        SELECT topic_name, total_questions, correct_answers, last_attempted
+        FROM topics
+        WHERE LOWER(topic_name) = LOWER(?) OR LOWER(topic_name) LIKE LOWER(?)
+        LIMIT 1
+        """, (topic, f"%{topic}%"))
+        topic_row = cursor.fetchone()
+
+    graded_questions = []
+    correct_count = 0
+    for q_row in question_rows:
+        is_corr = bool(q_row["is_correct"])
+        if is_corr:
+            correct_count += 1
+        graded_questions.append({
+            "question_id": f"q_{q_row['id']}",
+            "question_text": q_row["question_text"],
+            "question_type": q_row["question_type"],
+            "user_answer": q_row["user_answer"],
+            "correct_answer": q_row["correct_answer"],
+            "is_correct": is_corr,
+            "explanation": q_row["feedback"],
+            "topic": q_row["topic"]
+        })
+
+    total_q = len(graded_questions)
+    score_percentage = round((correct_count / total_q * 100) if total_q > 0 else 0.0, 1)
+    last_time = question_rows[0]["created_at"] if question_rows else None
+
+    return {
+        "quiz_id": f"topic_{topic.replace(' ', '_')}",
+        "topic": topic_row["topic_name"] if topic_row else topic,
+        "total_questions": total_q,
+        "correct_count": correct_count,
+        "score_percentage": score_percentage,
+        "graded_questions": graded_questions,
+        "recorded_at": last_time or datetime.datetime.now().isoformat()
+    }
+
+
 # =========================================================================
 # Past Paper Analyzer Database Operations
 # =========================================================================
+
 
 def save_past_paper(
     filename: str,

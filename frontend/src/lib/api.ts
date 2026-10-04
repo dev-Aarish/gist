@@ -175,6 +175,7 @@ export function generateQuiz(opts: {
   numQuestions?: number
   useWeakSpots?: boolean
   useHighYield?: boolean
+  fastMode?: boolean
 }): Promise<Quiz> {
   return request<Quiz>('/quiz/generate', {
     method: 'POST',
@@ -184,6 +185,7 @@ export function generateQuiz(opts: {
       num_questions: opts.numQuestions ?? 5,
       use_weak_spots: opts.useWeakSpots ?? false,
       use_high_yield: opts.useHighYield ?? false,
+      fast_mode: opts.fastMode ?? false,
     }),
   })
 }
@@ -205,6 +207,71 @@ export function submitQuiz(input: {
     }),
   })
 }
+
+export function getQuizAttemptDetails(quizId: string): Promise<QuizResult> {
+  return request<QuizResult>(`/quiz/attempts/${encodeURIComponent(quizId)}`)
+}
+
+export function getTopicHistory(topic: string): Promise<QuizResult> {
+  return request<QuizResult>(`/topics/${encodeURIComponent(topic)}/history`)
+}
+
+// =========================================================================
+// Mock Exam Mode ("Grill Me") API
+// =========================================================================
+
+export function getExamPresets(): Promise<{ presets: import('./types').ExamPreset[] }> {
+  return request<{ presets: import('./types').ExamPreset[] }>('/exam/presets')
+}
+
+export function generateMockExam(opts: {
+  subject?: string | null
+  topic?: string | null
+  durationMinutes?: number
+  totalMarks?: number
+  numQuestions?: number
+  useWeakSpots?: boolean
+  useHighYield?: boolean
+  fastMode?: boolean
+}): Promise<import('./types').MockExam> {
+  return request<import('./types').MockExam>('/exam/generate', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      subject: opts.subject ?? null,
+      topic: opts.topic ?? null,
+      duration_minutes: opts.durationMinutes ?? 30,
+      total_marks: opts.totalMarks ?? 50,
+      num_questions: opts.numQuestions ?? 8,
+      use_weak_spots: opts.useWeakSpots ?? false,
+      use_high_yield: opts.useHighYield ?? false,
+      fast_mode: opts.fastMode ?? false,
+    }),
+  })
+}
+
+export function submitMockExam(input: {
+  examId: string
+  subject?: string | null
+  durationMinutes: number
+  timeTakenSeconds: number
+  answers: Record<string, string>
+  questions: import('./types').MockExamQuestion[]
+}): Promise<import('./types').MockExamResult> {
+  return request<import('./types').MockExamResult>('/exam/submit', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      exam_id: input.examId,
+      subject: input.subject ?? null,
+      duration_minutes: input.durationMinutes,
+      time_taken_seconds: input.timeTakenSeconds,
+      answers: input.answers,
+      questions: input.questions,
+    }),
+  })
+}
+
 
 export function getProgress(): Promise<ProgressSummary> {
   return request<ProgressSummary>('/progress')

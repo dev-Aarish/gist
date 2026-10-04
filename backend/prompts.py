@@ -22,71 +22,47 @@ Question: {question}
 Please provide a well-structured and grounded answer based only on the context above:"""
 
 
-QUIZ_SYSTEM_PROMPT = """You are an expert exam creator.
-Your task is to generate high-quality quiz questions strictly based on the provided study notes.
-
-Rules:
-1. Generate valid JSON conforming to the requested schema.
-2. For multiple-choice questions ('mcq'), provide exactly 4 distinct options and clearly designate the single correct answer.
-3. For short-answer questions ('short_answer'), provide a concise and unambiguous reference answer.
-4. Each question MUST include:
-   - question: The question text
-   - type: "mcq" or "short_answer"
-   - options: array of 4 strings for mcq, or empty array [] for short_answer
-   - correct_answer: exact correct answer text
-   - explanation: clear explanation of why this answer is correct based on the context
-   - topic: the specific topic/subtopic name
-5. Questions must be factual, unambiguous, and directly testable against the notes.
-6. Return ONLY the JSON object with the "questions" key containing the array of question items. No introductory markdown or other text outside the JSON.
-"""
+QUIZ_SYSTEM_PROMPT = """You are a fast exam creator. Generate concise, high-quality multiple choice and short answer questions strictly grounded in the provided notes. Output ONLY valid JSON matching the exact schema."""
 
 QUIZ_USER_PROMPT = """Study Context:
 ---------------------
 {context}
 ---------------------
 
-Topic Focus: {topic}
+Topic: {topic}
 Number of Questions: {num_questions}
 
-Generate {num_questions} quiz questions (mix of MCQ and short answer) from the context above.
-Return ONLY valid JSON matching this structure:
+Generate {num_questions} clear, concise quiz questions. Keep questions, options, and explanations direct and brief (1 sentence max).
+Output strictly valid JSON:
 {{
   "topic": "{topic}",
   "questions": [
     {{
       "id": "q1",
       "type": "mcq",
-      "question": "...",
-      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-      "correct_answer": "A) ...",
-      "explanation": "...",
-      "topic": "{topic}"
+      "question": "Concise question here?",
+      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
+      "correct_answer": "A) Option 1",
+      "explanation": "Brief 1-sentence explanation."
     }}
   ]
 }}
 """
 
-SHORT_ANSWER_GRADING_PROMPT = """You are an automated exam grader.
-Compare the student's answer against the reference correct answer and the study context.
 
-Context:
-{context}
+SHORT_ANSWER_GRADING_PROMPT = """You are a fast, objective exam grader.
+Compare the student's answer against the reference correct answer and context.
 
-Question:
-{question}
+Context: {context}
+Question: {question}
+Reference Answer: {correct_answer}
+Student Answer: {user_answer}
 
-Reference Correct Answer:
-{correct_answer}
-
-Student's Answer:
-{user_answer}
-
-Determine if the student's answer demonstrates correct understanding of the concept. Minor spelling mistakes or phrasing differences are acceptable if the core concept is correct.
-
-Respond ONLY with valid JSON:
+Determine if the student demonstrates understanding. Minor phrasing differences are acceptable.
+Output ONLY valid JSON:
 {{
   "is_correct": true,
-  "feedback": "Brief 1-2 sentence feedback explaining why it is correct or what was missing."
+  "feedback": "Brief 1-sentence feedback."
 }}
 """
 
@@ -130,4 +106,86 @@ Filename: {filename}
 Provided Topic/Subject (if any): {provided_topic}
 
 Extract all questions, assign topics, detect marks, and return strictly valid JSON matching the schema."""
+
+
+# =========================================================================
+# Mock Exam Mode ("Grill Me") Prompts
+# =========================================================================
+
+MOCK_EXAM_SYSTEM_PROMPT = """You are an examiner generating a timed mock examination paper based strictly on the provided context.
+
+Rules:
+1. Generate valid JSON matching the exact schema.
+2. Distribute questions across the topics present in context.
+3. Explicit marks per question: 2.0 (MCQ/definition), 5.0 (theory/query), or 10.0 (design/problem).
+4. For 'mcq', provide exactly 4 distinct options ('A) ...', 'B) ...', etc.) and the single correct answer.
+5. For 'short_answer', provide a clear 1-2 sentence reference model answer.
+6. Keep 'explanation' very concise (1-2 sentences, max 25 words).
+7. Return ONLY the valid JSON object.
+"""
+
+MOCK_EXAM_USER_PROMPT = """Context:
+---------------------
+{context}
+---------------------
+
+Subject: {subject}
+Target Marks: {total_marks}
+Duration: {duration_minutes}m
+Questions: {num_questions}
+
+Generate {num_questions} mock exam questions. Output strictly valid JSON:
+{{
+  "title": "{subject} Mock Exam",
+  "subject": "{subject}",
+  "duration_minutes": {duration_minutes},
+  "total_marks": {total_marks},
+  "questions": [
+    {{
+      "id": "q1",
+      "question_number": "Q1",
+      "type": "mcq",
+      "marks": 2.0,
+      "topic": "Topic Name",
+      "subtopic": "Subtopic",
+      "question": "Question text...",
+      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+      "correct_answer": "A) ...",
+      "explanation": "Brief rationale."
+    }}
+  ]
+}}
+"""
+
+
+MOCK_EXAM_EVALUATION_PROMPT = """You are a rigorous, fair academic examiner grading a timed mock exam submission.
+Grade the student's response against the question, reference answer, and maximum allocated marks.
+
+Question:
+{question}
+
+Topic: {topic}
+Allocated Marks: {max_marks}
+
+Reference Model Answer & Grading Rubric:
+{reference_answer}
+
+Student's Submitted Answer:
+{student_answer}
+
+Grading Guidelines:
+1. Award marks between 0.0 and {max_marks} based on conceptual correctness, depth, and accuracy.
+2. For empty or irrelevant answers, award 0.0 marks.
+3. For partially correct answers that cover key concepts but miss nuances or examples, award proportional partial marks.
+4. For thoroughly correct answers addressing all core requirements, award full {max_marks} marks.
+5. Provide constructive feedback stating clearly why marks were awarded or deducted, and what key points were missing.
+
+Respond ONLY with valid JSON:
+{{
+  "marks_awarded": 4.5,
+  "is_correct": true,
+  "feedback": "Clear explanation of BCNF and 3NF difference. Deducted 0.5 marks for omitting the formal functional dependency definition."
+}}
+"""
+
 
