@@ -1,6 +1,6 @@
 # Tutorial: Getting Started with Gist
 
-This tutorial guides you step-by-step through setting up and running **Gist** on your local machine for the first time. By the end of this tutorial, you will have a running local instance of Gist with an indexed PDF document and execute your first grounded AI query.
+This tutorial guides you step-by-step through setting up and running **Gist** on your local machine for the first time. By the end of this tutorial, you will have a running local instance of Gist powered by local open-weight models, index a course document, analyze a past question paper, inspect the High-Yield Priority Matrix, and generate your first exam-targeted quiz.
 
 ---
 
@@ -18,7 +18,7 @@ Before beginning, ensure your environment meets the following requirements:
 
 ```mermaid
 graph TD
-    Start["Start Installation"] --> PullModels["Pull Ollama Models: qwen2.5:7b and nomic-embed-text"]
+    Start["Start Installation"] --> PullModels["Pull Open-Weight Models: Gemma 2 and nomic-embed-text"]
     PullModels --> SetupBackend["Setup Python Virtualenv and Install Backend Dependencies"]
     SetupBackend --> LaunchBackend["Start FastAPI Server on Port 8000"]
     LaunchBackend --> HealthCheck{"Verify Backend Health: GET /health"}
@@ -27,26 +27,34 @@ graph TD
     HealthCheck -- "Passes" --> SetupFrontend["Install Frontend npm Packages"]
     SetupFrontend --> LaunchFrontend["Start Vite Dev Server on Port 5173"]
     LaunchFrontend --> AppReady["Open Web UI at localhost:5173"]
-    AppReady --> UploadDoc["Upload Course Material PDF"]
-    UploadDoc --> AskQuestion["Run Grounded Q&A Query"]
+    AppReady --> UploadDoc["Upload Course Notes PDF"]
+    UploadDoc --> UploadPastPaper["Upload Past Exam Paper PDF"]
+    UploadPastPaper --> CheckMatrix["Review High-Yield Priority Matrix"]
+    CheckMatrix --> TargetedQuiz["Take High-Yield Diagnostic Quiz"]
 ```
 
 ---
 
-## Step 1: Download Required Ollama Models
+## Step 1: Download Recommended Open-Weight Models
 
-Gist uses Ollama to execute both text embedding and generation locally. Open your terminal and pull the default models:
+Gist works with any local model available in Ollama. We recommend **Google Gemma 2** for its balance of reasoning accuracy and speed.
+
+Open your terminal and pull the models:
 
 ```bash
-# Download the primary chat LLM (7B parameters)
-ollama pull qwen2.5:7b
+# Recommended primary chat model: Google Gemma 2 (9B parameters)
+ollama pull gemma2:9b
 
-# Download the vector embedding model
+# Recommended embedding model for vector search
 ollama pull nomic-embed-text:latest
 ```
 
-> **Note for 8 GB RAM machines:** You can pull `llama3.2:3b` as a lightweight chat model:
+> **Note for 8 GB RAM systems:** If your machine has 8 GB of RAM or lacks a dedicated GPU, pull the lightweight Gemma 2 or Llama 3.2 models instead:
 > ```bash
+> # 2B Gemma model (runs smoothly on lightweight hardware)
+> ollama pull gemma2:2b
+> 
+> # Alternatively, Meta Llama 3.2 3B
 > ollama pull llama3.2:3b
 > ```
 
@@ -75,12 +83,13 @@ ollama pull nomic-embed-text:latest
    uvicorn backend.main:app --reload --port 8000
    ```
 
-5. Confirm the backend is running by opening `http://localhost:8000/health` in your browser. You should see:
+5. Confirm the backend is running by opening `http://localhost:8000/health` in your browser. You should receive a status response confirming the Ollama connection:
    ```json
    {
      "status": "healthy",
      "ollama_status": "connected",
-     "active_model": "qwen2.5:7b"
+     "active_model": "gemma2:9b",
+     "models_available": ["gemma2:9b", "nomic-embed-text:latest"]
    }
    ```
 
@@ -88,7 +97,7 @@ ollama pull nomic-embed-text:latest
 
 ## Step 3: Set Up and Launch the React Frontend
 
-1. Open a new terminal tab/window and navigate to the `frontend` directory:
+1. Open a new terminal window and navigate to the `frontend` directory:
    ```bash
    cd frontend
    ```
@@ -103,33 +112,42 @@ ollama pull nomic-embed-text:latest
    npm run dev
    ```
 
-4. Open `http://localhost:5173` in your web browser to access the Gist web UI.
+4. Open `http://localhost:5173` in your web browser. Gist will load with its default dark-mode workbench.
 
 ---
 
-## Step 4: Perform Your First Grounded Q&A
+## Step 4: Perform Your First End-to-End Study Workflow
 
-Now that Gist is running, verify the end-to-end workflow:
+Verify both the note RAG engine and the exam intelligence engine:
 
-1. **Upload Course Material**:
-   - In the web interface, navigate to the **Documents** or **Upload** section.
-   - Upload any sample PDF study material (e.g., lecture notes or syllabus) and assign a topic (e.g., *Computer Science*).
-   - Wait for the indexing confirmation showing chunk counts.
+1. **Upload Course Study Material**:
+   - Go to the **Documents** section.
+   - Upload a syllabus or lecture note PDF (for example, *DBMS Chapter 1*) and assign a subject name (such as *DBMS*).
+   - Once processed, notice the chunk count and extracted page index.
 
-2. **Ask a Question**:
-   - Go to the **Q&A / Chat** tab.
-   - Type a question related to your uploaded document content.
-   - Observe the streamed response along with exact page-level source citations (e.g., `[Source: lecture1.pdf, Page: 4]`).
+2. **Run a Grounded Q&A Query**:
+   - Go to the **Q&A** screen.
+   - Ask a question based on your uploaded material.
+   - Observe the streamed response with exact page citations (for example, `[Source: DBMS_Chapter1.pdf, Page: 4]`).
 
-3. **Generate a Test Quiz**:
-   - Navigate to the **Quiz** section, select your topic, and click **Generate Quiz**.
-   - Answer the generated questions to verify quiz grading and mastery tracking.
+3. **Upload a Previous Year's Question Paper**:
+   - Navigate to the **Past Papers** tab.
+   - Upload a previous exam paper PDF (for example, *DBMS 2023 Final Exam*).
+   - Gist will extract the questions, detect marks allocations, and tag questions by subtopic.
+
+4. **Inspect the Exam Priority Matrix**:
+   - In the **Priority Matrix** view, examine the topic yield analysis.
+   - Observe how topics worth high exam marks are highlighted.
+
+5. **Generate a High-Yield Targeted Quiz**:
+   - Navigate to the **Quiz** section, select your subject, and toggle **Focus on High-Yield Weak Spots**.
+   - Complete the quiz. Gist grades your answers immediately, updates your topic mastery scores in SQLite, and dynamically updates the Priority Matrix to reflect your progress.
 
 ---
 
 ## Next Steps
 
-Congratulations! You have completed the Gist setup tutorial. 
-- To customize configuration, explore the [Configuration Reference](configuration.md).
-- To perform administrative tasks, see the [How-To Guides](how-to-guides.md).
-- To understand the internal retrieval architecture, view [System Architecture](architecture.md).
+Congratulations! You now have a complete, private, offline study partner running locally.
+- To learn how to switch models or manage subjects, view the [How-To Guides](how-to-guides.md).
+- To explore configuration options, read the [Configuration Reference](configuration.md).
+- To understand the underlying algorithms and math, see [System Architecture](architecture.md).
