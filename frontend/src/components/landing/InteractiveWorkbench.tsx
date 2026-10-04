@@ -395,7 +395,7 @@ export function InteractiveWorkbench() {
                     <div className="assistant-meta">
                       <div className="model-chip">
                         <span className="model-dot" />
-                        <span>qwen2.5:7b (Local Ollama · 42 tok/s)</span>
+                        <span>gemma2:9b (Local Ollama · 58 tok/s)</span>
                       </div>
                       <div className="private-chip">
                         <Lock size={11} />

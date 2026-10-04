@@ -8,7 +8,7 @@ export function QuickstartTerminal() {
   const commands = {
     quickstart: `# Clone and run with one command\ngit clone https://github.com/dev-Aarish/gist.git\ncd gist && ./start.sh`,
     docker: `# Run with Docker Compose\ngit clone https://github.com/dev-Aarish/gist.git\ncd gist && docker compose up -d`,
-    models: `# Pull your preferred local model with Ollama\nollama pull qwen2.5:7b      # Fast & highly capable (Recommended)\nollama pull llama3.2:3b     # Ultra-light for older laptops`,
+    models: `# Pull your preferred local model with Ollama\nollama pull gemma2:9b       # Fast & highly capable (Recommended)\nollama pull gemma2:2b       # Ultra-light for older laptops`,
   }
 
   const copyToClipboard = async () => {

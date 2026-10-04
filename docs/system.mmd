@@ -1,0 +1,36 @@
+graph TD
+    subgraph Host["Student's machine — no network calls leave this box"]
+        UI["React 18 + Vite<br/>Ask · Past Papers · Quiz · Grill Me"]
+        API["FastAPI<br/>REST + SSE"]
+
+        subgraph Engines["Analysis engines"]
+            ING["PyMuPDF ingestion<br/>600 char chunks, 100 overlap"]
+            ANA["Past-paper analyser<br/>regex → keywords → micro-LLM"]
+            RAG["Grounded RAG<br/>top-k=3, T=0.2"]
+            EXAM["Mock exam grader<br/>0.0 to max marks"]
+        end
+
+        subgraph Store["Local storage"]
+            CHROMA[("ChromaDB<br/>vector index")]
+            SQLITE[("SQLite<br/>tracker.db")]
+            FILES["data/uploads<br/>original PDFs"]
+        end
+
+        OLLAMA["Ollama :11434<br/>gemma2 · llama3.2 · mistral · phi4<br/>deepseek-r1 · qwen2.5 · nomic-embed-text"]
+    end
+
+    UI -->|"localhost"| API
+    API --> ING
+    API --> ANA
+    API --> RAG
+    API --> EXAM
+    ING --> FILES
+    ING --> CHROMA
+    ING --> OLLAMA
+    ANA --> SQLITE
+    ANA -.->|"background thread"| CHROMA
+    ANA --> OLLAMA
+    RAG --> CHROMA
+    RAG --> OLLAMA
+    EXAM --> SQLITE
+    EXAM --> OLLAMA

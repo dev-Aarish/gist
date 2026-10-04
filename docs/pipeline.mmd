@@ -1,0 +1,15 @@
+graph TD
+    PDF["Past paper PDF"] --> HEUR["Regex metadata scan<br/>year · total marks · title"]
+    HEUR --> PARSE{"Question boundaries<br/>found by regex?"}
+    PARSE -- "Yes" --> NUM["Split Q1(a), 2., (i)<br/>extract marks per line"]
+    NUM --> KW["Keyword topic inference<br/>bcnf, 3nf, closure → Normalization"]
+    KW --> LEFT{"Any topic still<br/>unclassified?"}
+    LEFT -- "No" --> CANON["Fold onto canonical topic map"]
+    LEFT -- "Yes" --> MICRO["Micro-LLM pass<br/>≤12 questions · 200 tokens · T=0.1"]
+    MICRO --> CANON
+    PARSE -- "No" --> LLM["Full LLM extraction<br/>fallback, 4k char sample"]
+    LLM --> CANON
+    CANON --> SQL[("SQLite<br/>questions, marks, topics")]
+    SQL --> MATRIX["Priority matrix<br/>marks % × weakness"]
+    SQL -.->|"background thread"| CHROMA[("ChromaDB")]
+    MATRIX --> RANK["Ranked revision list"]

@@ -267,11 +267,11 @@ export function LandingScreen({
               className="step-card"
             >
               <span className="step-badge">STEP 1</span>
-              <h3 className="step-title">Install Ollama & Pull Model</h3>
+              <h3 className="step-title">Install Ollama & Pull Gemma</h3>
               <p className="step-desc">
-                Download Ollama (or LM Studio) and pull your preferred open-weight model with one command.
+                Download Ollama (or LM Studio) and pull Google's Gemma 2 with one command.
               </p>
-              <pre className="step-code"><code>ollama pull qwen2.5:7b</code></pre>
+              <pre className="step-code"><code>ollama pull gemma2:9b</code></pre>
             </motion.div>
 
             <motion.div

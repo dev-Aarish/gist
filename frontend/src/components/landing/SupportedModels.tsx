@@ -3,27 +3,27 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Zap, HardDrive } from 'lucide-react'
 
 export function SupportedModels() {
-  const [selectedModel, setSelectedModel] = useState<string>('qwen')
+  const [selectedModel, setSelectedModel] = useState<string>('gemma')
 
   const models = [
     {
-      id: 'qwen',
-      name: 'Qwen 2.5 (7B / 14B)',
-      provider: 'Alibaba Cloud · Open Weights',
-      badge: 'Recommended for STEM',
-      ram: '8 GB – 16 GB Unified Memory',
-      speed: '40–75 tok/s on Apple Silicon / RTX',
-      cmd: 'ollama pull qwen2.5:7b',
-      strengths: 'Excels at complex academic reasoning, STEM proofs, code, and direct citation extraction.',
+      id: 'gemma',
+      name: 'Gemma 2 (9B / 27B)',
+      provider: 'Google DeepMind · Open Weights',
+      badge: 'Recommended for Study',
+      ram: '8 GB – 18 GB Unified Memory',
+      speed: '45–80 tok/s on Apple Silicon / RTX',
+      cmd: 'ollama pull gemma2:9b',
+      strengths: 'Excels at complex academic reasoning, deep comprehension, STEM proofs, and direct citation extraction.',
     },
     {
-      id: 'llama',
-      name: 'Llama 3.2 (3B / 1B)',
-      provider: 'Meta AI · Open Weights',
+      id: 'gemma-compact',
+      name: 'Gemma 2 (2B)',
+      provider: 'Google DeepMind · Open Weights',
       badge: 'Ultra-Light & Instant',
-      ram: '4 GB – 8 GB RAM',
-      speed: '80–120 tok/s on standard laptops',
-      cmd: 'ollama pull llama3.2:3b',
+      ram: '3 GB – 6 GB RAM',
+      speed: '90–140 tok/s on standard laptops',
+      cmd: 'ollama pull gemma2:2b',
       strengths: 'Lightning fast on lightweight laptops with near-instant quiz generation and zero battery drain.',
     },
     {
@@ -37,14 +37,14 @@ export function SupportedModels() {
       strengths: 'Detailed step-by-step thinking for multi-step physics, math, and algorithmic examination problems.',
     },
     {
-      id: 'mistral',
-      name: 'Mistral 7B / Nemo (12B)',
-      provider: 'Mistral AI · Open Weights',
-      badge: 'Editorial & Humanities',
+      id: 'qwen',
+      name: 'Qwen 2.5 (7B / 14B)',
+      provider: 'Alibaba Cloud · Open Weights',
+      badge: 'STEM & Code Polyglot',
       ram: '8 GB – 16 GB RAM',
-      speed: '35–60 tok/s',
-      cmd: 'ollama pull mistral',
-      strengths: 'Clean, dense summaries and essay-style exam prep for history, economics, and literature.',
+      speed: '40–75 tok/s',
+      cmd: 'ollama pull qwen2.5:7b',
+      strengths: 'Clean multi-subject reasoning and code generation for computer science, engineering, and mathematics.',
     },
   ]
 
@@ -62,10 +62,10 @@ export function SupportedModels() {
       >
         <div className="section-title-wrap">
           <h2 className="section-headline">
-            Compatible with any open-weight model.
+            Optimized for Gemma & open weights.
           </h2>
           <p className="section-subhead">
-            Switch between high-speed compact models and deep reasoning models with zero vendor lock-in.
+            Engineered around Google DeepMind's Gemma 2. Seamlessly switch between compact high-speed models and deep reasoning engines with zero vendor lock-in.
           </p>
         </div>
       </motion.div>
