@@ -14,7 +14,8 @@ import { EmptyState } from '../components/EmptyState'
 import { QuizCard } from '../components/QuizCard'
 
 export interface QuizIntent {
-  useWeakSpots: boolean
+  useWeakSpots?: boolean
+  useHighYield?: boolean
   topic?: string | null
 }
 
@@ -135,6 +136,7 @@ export function QuizScreen({
     topic?: string | null
     numQuestions?: number
     useWeakSpots?: boolean
+    useHighYield?: boolean
   }) {
     setStage('generating')
     setError(null)
@@ -147,6 +149,7 @@ export function QuizScreen({
         topic: options.topic ?? null,
         numQuestions: options.numQuestions ?? 5,
         useWeakSpots: options.useWeakSpots ?? false,
+        useHighYield: options.useHighYield ?? false,
       })
       if (!generated.questions.length) {
         throw new Error('No questions came back. Try a different topic.')
@@ -159,11 +162,15 @@ export function QuizScreen({
     }
   }
 
-  // A request from the Progress screen: jump straight into an adaptive quiz.
+  // A request from the Progress or Past-Paper screen: jump straight into an adaptive quiz.
   useEffect(() => {
     if (!intent) return
     onIntentConsumed()
-    void start({ useWeakSpots: intent.useWeakSpots, topic: intent.topic ?? null })
+    void start({
+      useWeakSpots: intent.useWeakSpots,
+      useHighYield: intent.useHighYield,
+      topic: intent.topic ?? null,
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent])
 

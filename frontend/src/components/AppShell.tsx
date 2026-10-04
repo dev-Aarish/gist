@@ -15,6 +15,8 @@ export function AppShell({
   onSelectTheme,
   documents,
   weakSpots,
+  papersCount,
+  highYieldCount,
   model,
   models,
   switchingModel,
@@ -34,6 +36,8 @@ export function AppShell({
   onSelectTheme: (next: ThemePreference) => void
   documents: DocumentInfo[]
   weakSpots: number
+  papersCount?: number
+  highYieldCount?: number
   model: string | null
   models: ModelInfo[]
   switchingModel: boolean
@@ -74,6 +78,8 @@ export function AppShell({
         onSelectTheme={onSelectTheme}
         documents={documents}
         weakSpots={weakSpots}
+        papersCount={papersCount}
+        highYieldCount={highYieldCount}
         model={model}
         models={models}
         switchingModel={switchingModel}

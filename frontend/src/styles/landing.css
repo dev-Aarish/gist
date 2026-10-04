@@ -387,10 +387,12 @@ html {
 
 /* --- Hero Section -------------------------------------------------------- */
 .landing-hero-section {
-  padding: var(--space-8) 0 var(--space-7);
+  min-height: calc(100vh - 64px);
+  padding: calc(var(--space-8) + 32px) 0 var(--space-7);
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .landing-hero-container {
@@ -402,6 +404,10 @@ html {
 }
 
 @media (min-width: 960px) {
+  .landing-hero-section {
+    padding-top: calc(var(--space-8) + 56px);
+  }
+
   .landing-hero-container {
     grid-template-columns: 1.15fr 0.85fr;
     gap: var(--space-8);
@@ -540,7 +546,8 @@ html {
 }
 
 .hero-scroll-indicator {
-  margin-top: var(--space-7);
+  margin-top: auto;
+  padding-top: var(--space-6);
   display: flex;
   justify-content: center;
 }

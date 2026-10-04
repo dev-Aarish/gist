@@ -8,7 +8,6 @@ import {
   FileCheck,
   Lock,
   ChevronDown,
-  Shield,
 } from 'lucide-react'
 import type { ThemePreference } from '../hooks/useTheme'
 import { ShaderBackground } from '../components/landing/ShaderBackground'
@@ -58,18 +57,6 @@ export function LandingScreen({
           <div className="landing-hero-container">
             {/* Staggered Content Animation Container */}
             <div className="hero-typography-block">
-              {/* Live Air-Gapped Pill */}
-              <motion.div
-                initial={{ opacity: 0, transform: 'translateY(10px)' }}
-                whileInView={{ opacity: 1, transform: 'translateY(0px)' }}
-                viewport={{ once: false, amount: 0.1 }}
-                transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-                className="hero-badge-pill"
-              >
-                <Shield size={13} className="text-success" />
-                <span>100% AIR-GAPPED STUDY COMPANION</span>
-              </motion.div>
-
               {/* Main Headline (Dynamic Animated Word Flip) */}
               <motion.h1
                 initial={{ opacity: 0, transform: 'translateY(16px)' }}

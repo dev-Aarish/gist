@@ -268,3 +268,96 @@ Resets system databases based on query parameters.
 - **Query Parameters**:
   - `reset_vector_db` (boolean, default `true`): Deletes vector index.
   - `reset_tracking` (boolean, default `false`): Wipes SQLite mastery logs.
+  - `reset_past_papers` (boolean, default `false`): Deletes extracted past papers and questions.
+
+---
+
+## 5. Past-Paper Analyzer & Priority Matrix
+
+### `POST /past-papers/upload`
+Uploads previous years' question papers (PDF), extracts questions, classifies them by academic topic/concept, extracts marks weightages, and stores them in SQLite and ChromaDB.
+
+- **Form Data**:
+  - `files`: PDF file(s)
+  - `topic` (optional): General course / subject name
+  - `year` (optional): Exam year (e.g., "2023", "2024")
+- **Response `200 OK`**:
+  ```json
+  {
+    "results": [
+      {
+        "filename": "DBMS_2023_Final.pdf",
+        "status": "success",
+        "paper_id": 1,
+        "title": "Database Management Systems Final Exam",
+        "year": "2023",
+        "subject": "DBMS",
+        "total_questions": 9,
+        "total_marks": 100.0
+      }
+    ],
+    "total_files": 1,
+    "message": "Past papers analyzed and questions extracted successfully."
+  }
+  ```
+
+---
+
+### `GET /past-papers`
+Lists all uploaded and analyzed previous years' question papers.
+
+---
+
+### `GET /past-papers/{paper_id}`
+Returns full details and all extracted questions for a specific past paper.
+
+---
+
+### `DELETE /past-papers/{paper_id}`
+Deletes a past paper and all its associated questions from SQLite.
+
+---
+
+### `GET /past-papers/analysis`
+Aggregates past paper data to reveal:
+- **Topic Frequency**: How often each topic appears across past exams.
+- **Marks Weightage**: Total marks and percentage contribution of each topic.
+- **Yield Ratings**: High Yield vs Medium Yield vs Low Yield categories.
+
+---
+
+### `GET /past-papers/priority-matrix`
+**The Core High-Yield Priority Engine**: Cross-references past paper topic weightage with the student's quiz performance history to identify and prioritize topics that are **BOTH high-yield in exams and weak in quizzes**.
+
+- **Response `200 OK`**:
+  ```json
+  {
+    "total_papers_analyzed": 3,
+    "total_past_questions": 28,
+    "high_yield_weak_spots_count": 2,
+    "critical_priority_count": 1,
+    "summary_insight": "Found 1 critical high-yield topic where past exams ask heavy marks but your quiz mastery is low.",
+    "prioritized_topics": [
+      {
+        "topic": "Normalization",
+        "exam_marks": 35.0,
+        "exam_marks_pct": 25.0,
+        "exam_frequency_pct": 100.0,
+        "exam_importance": 35.0,
+        "question_count": 6,
+        "quiz_attempts": 4,
+        "quiz_accuracy": 25.0,
+        "mastery_status": "Weak Spot",
+        "priority_level": "critical",
+        "priority_score": 76.8,
+        "recommendation": "Critical Priority. Worth ~25% of exam marks with only 25% accuracy. Needs immediate study."
+      }
+    ]
+  }
+  ```
+
+---
+
+### `GET /past-papers/questions`
+Search and filter extracted past paper questions by topic, year, paper ID, or keyword query.
+

@@ -1,6 +1,6 @@
-import { ChartColumn, RefreshCw } from 'lucide-react'
+import { ChartColumn, RefreshCw, Sparkles, GraduationCap } from 'lucide-react'
 import { formatPercent, pluralize, relativeTime } from '../lib/format'
-import type { ProgressSummary, TopicStat } from '../lib/types'
+import type { ProgressSummary, TopicStat, PriorityMatrixResponse } from '../lib/types'
 import type { ScreenId } from '../lib/nav'
 import { BackendNotice } from '../components/BackendNotice'
 import { EmptyState } from '../components/EmptyState'
@@ -30,18 +30,22 @@ function tileStatus(status: TopicStat['status']): TileStatus {
 
 export function ProgressScreen({
   progress,
+  priorityMatrix,
   loading,
   error,
   onRefresh,
   onStartWeakQuiz,
+  onStartHighYieldQuiz,
   onStartTopicQuiz,
   onNavigate,
 }: {
   progress: ProgressSummary | null
+  priorityMatrix?: PriorityMatrixResponse | null
   loading: boolean
   error: string | null
   onRefresh: () => void
   onStartWeakQuiz: () => void
+  onStartHighYieldQuiz?: () => void
   onStartTopicQuiz: (topic: string) => void
   onNavigate: (next: ScreenId) => void
 }) {
@@ -165,7 +169,7 @@ export function ProgressScreen({
               <MasteryBar key={stat.topic} stat={stat} />
             ))}
           </div>
-          <div style={{ marginTop: 'var(--space-4)' }}>
+          <div style={{ marginTop: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn--secondary"
@@ -173,6 +177,69 @@ export function ProgressScreen({
             >
               Quiz me on weak spots
             </button>
+            {priorityMatrix && priorityMatrix.critical_priority_count > 0 && onStartHighYieldQuiz ? (
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={onStartHighYieldQuiz}
+              >
+                <Sparkles size={14} style={{ marginRight: '6px' }} />
+                Practice High-Yield Exam Weak Spots
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {priorityMatrix && priorityMatrix.prioritized_topics.length > 0 ? (
+        <section className="section">
+          <div className="eyebrow" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="t-label">Exam Importance vs Mastery (Past-Paper Priority)</span>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => onNavigate('papers')}
+              style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              <GraduationCap size={13} />
+              <span>Open Analyzer →</span>
+            </button>
+          </div>
+          <div className="panel" style={{ padding: 'var(--space-4)' }}>
+            <p style={{ margin: '0 0 var(--space-3)', fontSize: '13px', color: 'var(--text-muted)' }}>
+              {priorityMatrix.summary_insight}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {priorityMatrix.prioritized_topics.slice(0, 3).map((item) => (
+                <div
+                  key={item.topic}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    background: 'var(--surface-2)',
+                    borderRadius: 'var(--radius-xs)',
+                    fontSize: '13px',
+                  }}
+                >
+                  <div>
+                    <span style={{ fontWeight: 600, color: 'var(--text)' }}>{item.topic}</span>
+                    <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                      ~{formatPercent(item.exam_marks_pct)} of exam · {item.quiz_attempts > 0 ? `${formatPercent(item.quiz_accuracy)} quiz accuracy` : 'Unattempted'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    style={{ fontSize: '11px', padding: '2px 8px' }}
+                    onClick={() => onStartTopicQuiz(item.topic)}
+                  >
+                    Quiz
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}

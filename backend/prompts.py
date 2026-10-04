@@ -89,3 +89,45 @@ Respond ONLY with valid JSON:
   "feedback": "Brief 1-2 sentence feedback explaining why it is correct or what was missing."
 }}
 """
+
+
+PAST_PAPER_EXTRACTION_PROMPT = """You are an expert exam paper analyzer and parser.
+Your task is to analyze the provided text of a past examination paper, extract every distinct question or sub-question, classify each by topic, and identify the marks assigned.
+
+Guidelines:
+1. Identify all questions and sub-questions (e.g. Q1(a), Q1(b), Q2, Question 3, Section A Q1, etc.).
+2. Extract the exact or cleaned question text.
+3. Assign a specific, clean academic topic/concept (e.g., "Relational Algebra", "Normalization", "ER Modeling", "Indexing & B+ Trees", "Transactions & Concurrency", "SQL Queries", etc.). Use canonical topic names where possible.
+4. Extract the marks allocated to each question if mentioned (e.g. [5], (10 marks), 15M, [5 Marks]). If marks are not explicitly stated in the paper, estimate realistic standard marks (e.g., 2-3 marks for short/MCQ/definition, 5-8 marks for medium/theory, 10-15 marks for long design/code/derivation).
+5. Identify question type: "theory", "numerical", "code", "definition", "design", "mcq", or "short_answer".
+6. Detect paper metadata if present: title, exam year/term, subject name, total marks.
+
+Return ONLY valid JSON with this exact structure:
+{{
+  "title": "Database Management Systems Final Exam",
+  "year": "2023",
+  "subject": "DBMS",
+  "total_marks": 100,
+  "questions": [
+    {{
+      "question_number": "Q1(a)",
+      "question_text": "Explain 3NF and BCNF with a suitable relation example.",
+      "topic": "Normalization",
+      "subtopic": "Normal Forms",
+      "marks": 5.0,
+      "question_type": "theory"
+    }}
+  ]
+}}
+"""
+
+PAST_PAPER_USER_PROMPT = """Past Paper Text:
+---------------------
+{paper_text}
+---------------------
+
+Filename: {filename}
+Provided Topic/Subject (if any): {provided_topic}
+
+Extract all questions, assign topics, detect marks, and return strictly valid JSON matching the schema."""
+

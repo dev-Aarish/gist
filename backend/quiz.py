@@ -76,57 +76,108 @@ ACTIVE_QUIZZES: Dict[str, Quiz] = {}
 def fetch_context_for_quiz(
     topic: Optional[str] = None,
     max_chunks: int = 8,
-    use_weak_spots: bool = False
+    use_weak_spots: bool = False,
+    use_high_yield: bool = False
 ) -> Dict[str, Any]:
     """
-    Fetch relevant context chunks from ChromaDB for the quiz topic or weakest topics.
+    Fetch relevant context chunks from ChromaDB and/or SQLite Past Paper archive
+    for the quiz topic, weakest topics, or high-yield past paper priorities.
     """
-    collection = get_collection()
-    count = collection.count()
-    if count == 0:
-        return {"context": "", "topic": topic or "General", "chunks": []}
+    from backend.tracker import get_past_paper_questions, get_priority_matrix
 
     target_topic = topic
     is_adaptive = False
 
-    if use_weak_spots or not target_topic:
+    if use_high_yield:
+        try:
+            matrix = get_priority_matrix()
+            prioritized = matrix.get("prioritized_topics", [])
+            # Find the top critical or high priority topic
+            if prioritized:
+                target_topic = prioritized[0]["topic"]
+                is_adaptive = True
+        except Exception:
+            pass
+
+    if not target_topic and use_weak_spots:
         weak_topics = get_weak_topics(limit=2)
         if weak_topics:
             target_topic = weak_topics[0]
             is_adaptive = True
 
+    # 1. Try querying ChromaDB
+    collection = get_collection()
+    count = 0
+    try:
+        count = collection.count()
+    except Exception:
+        count = 0
+
+    documents = []
+    metadatas = []
+
     where_filter = None
     if target_topic and target_topic != "All Topics":
         where_filter = {"topic": target_topic}
 
-    # Fetch chunks
-    try:
-        results = collection.get(
-            where=where_filter,
-            limit=max_chunks,
-            include=["documents", "metadatas"]
-        )
-    except Exception:
-        results = collection.get(limit=max_chunks, include=["documents", "metadatas"])
+    if count > 0:
+        try:
+            results = collection.get(
+                where=where_filter,
+                limit=max_chunks,
+                include=["documents", "metadatas"]
+            )
+            documents = results.get("documents", [])
+            metadatas = results.get("metadatas", [])
+        except Exception:
+            documents = []
+            metadatas = []
 
-    documents = results.get("documents", [])
-    metadatas = results.get("metadatas", [])
+    # 2. If no chunks found for target_topic in ChromaDB, check Past Paper Questions from SQLite!
+    past_questions = []
+    if not documents and target_topic and target_topic != "All Topics":
+        past_questions = get_past_paper_questions(topic=target_topic, limit=max_chunks * 2)
 
-    if not documents:
-        # Fallback to random/all chunks if topic filter returned nothing
+    # If target_topic wasn't specified and ChromaDB is empty, check all past paper questions
+    if not documents and not past_questions and count == 0:
+        past_questions = get_past_paper_questions(limit=max_chunks * 2)
+
+    context_blocks = []
+    if documents:
+        for idx, doc_text in enumerate(documents):
+            meta = metadatas[idx] if idx < len(metadatas) else {}
+            src = meta.get("source", "Notes")
+            pg = meta.get("page", 1)
+            top = meta.get("topic", target_topic or "General")
+            context_blocks.append(f"[File: {src}, Page: {pg}, Topic: {top}]\n{doc_text}")
+        final_topic = target_topic or (metadatas[0].get("topic", "General") if metadatas else "Course Material")
+    elif past_questions:
+        # Build context directly from real previous years' exam questions
+        for q in past_questions[:max_chunks * 2]:
+            q_src = q.get("paper_title") or q.get("filename") or "Exam Paper"
+            q_yr = q.get("paper_year") or "Past Exam"
+            q_num = q.get("question_number") or ""
+            q_top = q.get("topic") or target_topic or "General"
+            q_marks = q.get("marks") or 5
+            q_txt = q.get("question_text", "")
+            context_blocks.append(
+                f"[Exam Archive: {q_src}, Year: {q_yr}, Question {q_num}, Marks: {q_marks}M, Topic: {q_top}]\n{q_txt}"
+            )
+        final_topic = target_topic or past_questions[0].get("topic", "Exam Questions")
+    elif count > 0:
+        # Fallback to general documents from ChromaDB if available
         results = collection.get(limit=max_chunks, include=["documents", "metadatas"])
         documents = results.get("documents", [])
         metadatas = results.get("metadatas", [])
-
-    context_blocks = []
-    for idx, doc_text in enumerate(documents):
-        meta = metadatas[idx] if idx < len(metadatas) else {}
-        src = meta.get("source", "Notes")
-        pg = meta.get("page", 1)
-        top = meta.get("topic", target_topic or "General")
-        context_blocks.append(f"[File: {src}, Page: {pg}, Topic: {top}]\n{doc_text}")
-
-    final_topic = target_topic or (metadatas[0].get("topic", "General") if metadatas else "Course Material")
+        for idx, doc_text in enumerate(documents):
+            meta = metadatas[idx] if idx < len(metadatas) else {}
+            src = meta.get("source", "Notes")
+            pg = meta.get("page", 1)
+            top = meta.get("topic", target_topic or "General")
+            context_blocks.append(f"[File: {src}, Page: {pg}, Topic: {top}]\n{doc_text}")
+        final_topic = target_topic or (metadatas[0].get("topic", "General") if metadatas else "Course Material")
+    else:
+        final_topic = target_topic or "General"
 
     return {
         "context": "\n\n".join(context_blocks),
@@ -140,19 +191,22 @@ def generate_quiz(
     topic: Optional[str] = None,
     num_questions: int = 5,
     use_weak_spots: bool = False,
+    use_high_yield: bool = False,
     max_retries: int = 3
 ) -> Quiz:
     """
-    Generate a validated JSON quiz with automatic retries on validation failure.
+    Generate a validated JSON quiz with automatic retries on validation failure,
+    with graceful fallback to direct past-paper questions if Ollama is unreachable.
     """
     context_data = fetch_context_for_quiz(
         topic=topic,
         max_chunks=max(8, min(num_questions, 20)),
-        use_weak_spots=use_weak_spots
+        use_weak_spots=use_weak_spots,
+        use_high_yield=use_high_yield
     )
 
     if not context_data["context"]:
-        raise ValueError("No notes found in database. Please upload your study notes first.")
+        raise ValueError("No study notes or past exam questions found. Please upload notes or question papers first.")
 
     target_topic = context_data["topic"]
     user_prompt = QUIZ_USER_PROMPT.format(
@@ -205,7 +259,7 @@ def generate_quiz(
                 quiz_data = QuizSchema.model_validate(parsed_dict)
                 break
 
-            except (json.JSONDecodeError, ValidationError, Exception) as e:
+            except (json.JSONDecodeError, ValidationError) as e:
                 last_error = str(e)
                 # Add error feedback to prompt messages for retry
                 model_messages.append({"role": "assistant", "content": raw_json_str if 'raw_json_str' in locals() else ""})
@@ -213,11 +267,58 @@ def generate_quiz(
                     "role": "user",
                     "content": f"The previous response failed validation with error: {last_error}. Please correct the formatting and output valid JSON according to the schema."
                 })
+            except Exception as e:
+                err_str = str(e)
+                last_error = err_str
+                # If connection error (Ollama is offline or unreachable), break out immediately
+                is_conn_error = any(kw in err_str.lower() for kw in [
+                    "connect", "connection", "refused", "offline", "unreachable", "downloaded, running and accessible"
+                ])
+                if is_conn_error:
+                    break
 
         if quiz_data and quiz_data.questions:
             break
 
     if not quiz_data or not quiz_data.questions:
+        # Check if we can build a direct practice quiz from past paper questions
+        from backend.tracker import get_past_paper_questions
+        direct_pqs = get_past_paper_questions(
+            topic=target_topic if target_topic != "All Topics" else None,
+            limit=num_questions
+        )
+        if direct_pqs:
+            fallback_items = []
+            for pq in direct_pqs:
+                q_id = f"pq_{pq.get('id', uuid.uuid4().hex[:6])}"
+                p_title = pq.get("paper_title") or pq.get("filename") or "Past Exam Paper"
+                p_yr = pq.get("paper_year") or ""
+                marks = pq.get("marks", 5)
+                fallback_items.append(QuizQuestionItem(
+                    id=q_id,
+                    type="short_answer",
+                    question=pq.get("question_text", ""),
+                    options=[],
+                    correct_answer=f"Comprehensive response addressing core concepts for {marks} marks.",
+                    explanation=f"Real exam question from {p_title} ({p_yr}) carrying {marks} marks for topic '{pq.get('topic', target_topic)}'.",
+                    topic=pq.get("topic") or target_topic,
+                    source_file=p_title
+                ))
+            quiz_id = f"quiz_{uuid.uuid4().hex[:8]}"
+            quiz_obj = Quiz(
+                quiz_id=quiz_id,
+                topic=target_topic,
+                questions=fallback_items,
+                created_at=datetime.datetime.now().isoformat(),
+                is_adaptive=context_data.get("is_adaptive", False)
+            )
+            ACTIVE_QUIZZES[quiz_id] = quiz_obj
+            return quiz_obj
+
+        if any(kw in str(last_error).lower() for kw in [
+            "connect", "connection", "refused", "offline", "unreachable", "downloaded, running and accessible"
+        ]):
+            raise ConnectionError(f"Ollama local LLM is unreachable ({last_error}). Please ensure Ollama is running ('ollama serve').")
         raise RuntimeError(f"Failed to generate valid quiz after {max_retries} attempts. Last error: {last_error}")
 
     quiz_id = f"quiz_{uuid.uuid4().hex[:8]}"

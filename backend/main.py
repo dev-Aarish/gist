@@ -32,8 +32,16 @@ from backend.tracker import (
     init_db,
     get_progress_summary,
     get_topic_statistics,
-    reset_tracker
+    reset_tracker,
+    list_past_papers,
+    get_past_paper,
+    delete_past_paper,
+    get_past_paper_questions,
+    get_past_paper_analysis,
+    get_priority_matrix,
+    list_past_paper_subjects
 )
+from backend.analyzer import analyze_and_ingest_past_paper
 
 # Initialize database on startup
 init_db()
@@ -91,9 +99,16 @@ class QuizGenerateRequest(BaseModel):
     topic: Optional[str] = None
     num_questions: int = Field(default=5, ge=1, le=20)
     use_weak_spots: bool = False
+    use_high_yield: bool = False
 
 
 class UploadResponse(BaseModel):
+    results: List[dict]
+    total_files: int
+    message: str
+
+
+class PastPaperUploadResponse(BaseModel):
     results: List[dict]
     total_files: int
     message: str
@@ -252,7 +267,13 @@ def ask_question_endpoint(request: AskRequest):
         )
         return response
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process question: {str(e)}")
+        err_msg = str(e)
+        if any(kw in err_msg.lower() for kw in ["connect", "connection", "refused", "offline", "unreachable"]):
+            raise HTTPException(
+                status_code=503,
+                detail=f"Local LLM service (Ollama) is currently unreachable: {err_msg}. Please ensure Ollama is running ('ollama serve')."
+            )
+        raise HTTPException(status_code=500, detail=f"Failed to process question: {err_msg}")
 
 
 @app.post("/ask/stream")
@@ -333,20 +354,32 @@ def select_model(request: SelectModelRequest):
 @app.post("/quiz/generate", response_model=Quiz)
 def generate_quiz_endpoint(request: QuizGenerateRequest):
     """
-    Generate a Pydantic-validated JSON quiz from indexed notes.
-    Supports targeting weak spots or specific topics.
+    Generate a Pydantic-validated JSON quiz from indexed notes or past paper questions.
+    Supports targeting weak spots, high-yield exam priorities, or specific topics.
     """
     try:
         quiz = generate_quiz(
             topic=request.topic,
             num_questions=request.num_questions,
-            use_weak_spots=request.use_weak_spots
+            use_weak_spots=request.use_weak_spots,
+            use_high_yield=request.use_high_yield
         )
         return quiz
+    except ConnectionError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Local LLM service (Ollama) is currently unreachable: {str(e)}. Please ensure Ollama is running ('ollama serve')."
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
+        err_msg = str(e)
+        if any(kw in err_msg.lower() for kw in ["connect", "connection", "refused", "offline", "unreachable"]):
+            raise HTTPException(
+                status_code=503,
+                detail=f"Local LLM service (Ollama) is currently unreachable: {err_msg}. Please ensure Ollama is running ('ollama serve')."
+            )
+        raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {err_msg}")
 
 
 @app.post("/quiz/submit", response_model=QuizResult)
@@ -381,19 +414,188 @@ def get_topics():
     return {"topics": topics}
 
 
+# =========================================================================
+# Past Paper Analyzer Endpoints
+# =========================================================================
+
+@app.post("/past-papers/upload", response_model=PastPaperUploadResponse)
+async def upload_past_papers_endpoint(
+    files: List[UploadFile] = File(...),
+    topic: Optional[str] = None,
+    year: Optional[str] = None
+):
+    """
+    Upload previous years' question papers (PDF), extract questions,
+    tag by topic/subtopic, detect marks, and save into SQLite and ChromaDB.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No past paper files uploaded.")
+
+    upload_results = []
+    for file in files:
+        if not file.filename.lower().endswith(".pdf"):
+            upload_results.append({
+                "filename": file.filename,
+                "status": "skipped",
+                "message": "Only PDF question papers are supported."
+            })
+            continue
+
+        file_path = Path(settings.upload_dir) / file.filename
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            # Analyze and extract questions
+            analysis_res = analyze_and_ingest_past_paper(
+                pdf_path=file_path,
+                topic=topic,
+                year=year
+            )
+
+            # Index into ChromaDB in background thread so upload response returns immediately
+            def _async_chroma_ingest(fpath: Path, top: str):
+                try:
+                    ingest_pdf(fpath, topic=top)
+                except Exception as ex:
+                    print(f"Async ChromaDB ingest note: {ex}")
+
+            threading.Thread(
+                target=_async_chroma_ingest,
+                args=(file_path, topic or analysis_res.get("subject") or "Past Papers"),
+                daemon=True
+            ).start()
+
+            upload_results.append({
+                "filename": file.filename,
+                "status": "success",
+                "paper_id": analysis_res["paper_id"],
+                "title": analysis_res["title"],
+                "year": analysis_res["year"],
+                "subject": analysis_res["subject"],
+                "total_questions": analysis_res["total_questions"],
+                "total_marks": analysis_res["total_marks"]
+            })
+        except Exception as e:
+            upload_results.append({
+                "filename": file.filename,
+                "status": "error",
+                "message": str(e)
+            })
+
+    return PastPaperUploadResponse(
+        results=upload_results,
+        total_files=len(files),
+        message="Past papers analyzed and questions extracted successfully."
+    )
+
+
+@app.get("/past-papers")
+def get_past_papers_endpoint(subject: Optional[str] = None):
+    """List all analyzed previous years' question papers, optionally filtered by subject."""
+    papers = list_past_papers(subject=subject)
+    return {
+        "papers": papers,
+        "total_papers": len(papers),
+        "active_subject": subject or "All"
+    }
+
+
+@app.get("/past-papers/subjects")
+def get_past_paper_subjects_endpoint():
+    """List distinct subjects across all uploaded question papers with counts."""
+    subjects = list_past_paper_subjects()
+    return {"subjects": subjects}
+
+
+@app.get("/past-papers/analysis")
+def get_past_papers_analysis_endpoint(subject: Optional[str] = None):
+    """
+    Retrieve aggregated topic frequency, marks distribution,
+    and yield ratings across uploaded past papers, optionally segregated by subject.
+    """
+    analysis = get_past_paper_analysis(subject=subject)
+    return analysis
+
+
+@app.get("/past-papers/priority-matrix")
+def get_past_papers_priority_matrix_endpoint(subject: Optional[str] = None):
+    """
+    Retrieve the combined Exam Priority Matrix:
+    Prioritizes topics that are BOTH high-yield in past papers and weak in quiz tracker.
+    Supports subject segregation.
+    """
+    matrix = get_priority_matrix(subject=subject)
+    return matrix
+
+
+@app.get("/past-papers/questions")
+def get_past_paper_questions_endpoint(
+    subject: Optional[str] = None,
+    topic: Optional[str] = None,
+    year: Optional[str] = None,
+    paper_id: Optional[int] = None,
+    search: Optional[str] = None,
+    limit: int = Query(default=100, ge=1, le=500)
+):
+    """Retrieve browsable past paper questions with subject, topic, marks, and text filters."""
+    questions = get_past_paper_questions(
+        subject=subject,
+        topic=topic,
+        year=year,
+        paper_id=paper_id,
+        search=search,
+        limit=limit
+    )
+    return {
+        "questions": questions,
+        "total_questions": len(questions)
+    }
+
+
+@app.get("/past-papers/{paper_id}")
+def get_past_paper_detail_endpoint(paper_id: int):
+    """Retrieve details and extracted questions for a single past paper."""
+    paper = get_past_paper(paper_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail="Past paper not found.")
+    return paper
+
+
+@app.delete("/past-papers/{paper_id}")
+def delete_past_paper_endpoint(paper_id: int):
+    """Delete a past paper and its questions."""
+    success = delete_past_paper(paper_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete past paper.")
+    return {"status": "success", "deleted_paper_id": paper_id}
+
+
+@app.post("/past-papers/reanalyze")
+def reanalyze_past_papers_endpoint():
+    """Re-analyze all uploaded question papers and refresh topic tags and marks."""
+    try:
+        from backend.analyzer import reanalyze_all_uploaded_papers
+        res = reanalyze_all_uploaded_papers()
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reanalyze past papers: {str(e)}")
+
+
 @app.post("/reset")
 def reset_all_data(
     reset_vector_db: bool = Query(default=True),
-    reset_tracking: bool = Query(default=False)
+    reset_tracking: bool = Query(default=False),
+    reset_past_papers: bool = Query(default=False)
 ):
-    """Reset ChromaDB index and/or SQLite quiz tracking history."""
+    """Reset ChromaDB index, SQLite quiz tracking history, and/or past papers."""
     chroma_reset = False
     tracker_reset = False
 
     if reset_vector_db:
         chroma_reset = reset_index()
-    if reset_tracking:
-        tracker_reset = reset_tracker()
+    if reset_tracking or reset_past_papers:
+        tracker_reset = reset_tracker(include_past_papers=reset_past_papers)
 
     return {
         "status": "success",

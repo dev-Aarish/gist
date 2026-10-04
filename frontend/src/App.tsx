@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
-import { useDocuments, useHealth, useProgress } from './hooks/useApiData'
+import {
+  useDocuments,
+  useHealth,
+  useProgress,
+  usePastPapers,
+  usePastPaperAnalysis,
+  usePriorityMatrix,
+} from './hooks/useApiData'
 import { useModels } from './hooks/useModels'
 import { useTheme } from './hooks/useTheme'
 import { useChatSessions } from './hooks/useChatSessions'
@@ -9,6 +16,7 @@ import { AskScreen } from './screens/AskScreen'
 import { NotesScreen } from './screens/NotesScreen'
 import { ProgressScreen } from './screens/ProgressScreen'
 import { QuizScreen, type QuizIntent } from './screens/QuizScreen'
+import { PastPaperScreen } from './screens/PastPaperScreen'
 import { LandingScreen } from './screens/LandingScreen'
 
 function getScreenFromLocation(): ScreenId {
@@ -19,17 +27,35 @@ function getScreenFromLocation(): ScreenId {
     // Check if on /ai route
     if (pathname === '/ai' || pathname.startsWith('/ai/')) {
       const subPath = pathname.replace(/^\/ai\/?/, '')
-      if (subPath === 'quiz' || subPath === 'progress' || subPath === 'notes' || subPath === 'ask') {
+      if (
+        subPath === 'quiz' ||
+        subPath === 'progress' ||
+        subPath === 'notes' ||
+        subPath === 'ask' ||
+        subPath === 'papers'
+      ) {
         return subPath as ScreenId
       }
-      if (hash === 'quiz' || hash === 'progress' || hash === 'notes' || hash === 'ask') {
+      if (
+        hash === 'quiz' ||
+        hash === 'progress' ||
+        hash === 'notes' ||
+        hash === 'ask' ||
+        hash === 'papers'
+      ) {
         return hash as ScreenId
       }
       return 'ask'
     }
 
     // Check hash for legacy/direct links
-    if (hash === 'ask' || hash === 'quiz' || hash === 'progress' || hash === 'notes') {
+    if (
+      hash === 'ask' ||
+      hash === 'quiz' ||
+      hash === 'progress' ||
+      hash === 'notes' ||
+      hash === 'papers'
+    ) {
       return hash as ScreenId
     }
 
@@ -76,15 +102,46 @@ export default function App() {
     refresh: refreshProgress,
   } = useProgress()
 
+  const {
+    papers,
+    loading: papersLoading,
+    error: papersError,
+    refresh: refreshPapers,
+  } = usePastPapers()
+
+  const {
+    analysis: pastPaperAnalysis,
+    loading: analysisLoading,
+    error: analysisError,
+    refresh: refreshAnalysis,
+  } = usePastPaperAnalysis()
+
+  const {
+    matrix: priorityMatrix,
+    loading: matrixLoading,
+    error: matrixError,
+    refresh: refreshMatrix,
+  } = usePriorityMatrix()
+
   // Both calls run on load, so either failing means the backend is unreachable.
-  const backendError = documentsError ?? progressError
+  const backendError = documentsError ?? progressError ?? papersError
   const offline = backendError !== null
 
   const retryBackend = useCallback(() => {
     void refreshDocuments()
     void refreshProgress()
     void refreshHealth()
-  }, [refreshDocuments, refreshProgress, refreshHealth])
+    void refreshPapers()
+    void refreshAnalysis()
+    void refreshMatrix()
+  }, [
+    refreshDocuments,
+    refreshProgress,
+    refreshHealth,
+    refreshPapers,
+    refreshAnalysis,
+    refreshMatrix,
+  ])
 
   useEffect(() => {
     if (screen === 'landing') {
@@ -151,6 +208,8 @@ export default function App() {
       onSelectTheme={setPreference}
       documents={documents}
       weakSpots={progress?.weak_spots_count ?? 0}
+      papersCount={papers.length}
+      highYieldCount={priorityMatrix?.critical_priority_count ?? 0}
       model={activeModel ?? health?.active_llm ?? null}
       models={models}
       switchingModel={switchingModel}
@@ -171,7 +230,12 @@ export default function App() {
           offlineMessage={backendError}
           onRetry={retryBackend}
           onNavigate={navigate}
-          onDocumentsChanged={() => void refreshDocuments()}
+          onDocumentsChanged={() => {
+            void refreshDocuments()
+            void refreshPapers()
+            void refreshAnalysis()
+            void refreshMatrix()
+          }}
           sessions={sessions}
           activeSessionId={activeSessionId}
           onStartNewSession={startNewSession}
@@ -188,18 +252,57 @@ export default function App() {
           offlineMessage={backendError}
           onRetry={retryBackend}
           onIntentConsumed={() => setQuizIntent(null)}
-          onProgressChanged={() => void refreshProgress()}
+          onProgressChanged={() => {
+            void refreshProgress()
+            void refreshMatrix()
+          }}
+        />
+      ) : null}
+
+      {screen === 'papers' ? (
+        <PastPaperScreen
+          analysis={pastPaperAnalysis}
+          priorityMatrix={priorityMatrix}
+          papers={papers}
+          loading={papersLoading || analysisLoading || matrixLoading}
+          error={papersError ?? analysisError ?? matrixError}
+          offline={offline}
+          offlineMessage={backendError}
+          onRetry={retryBackend}
+          onRefresh={() => {
+            void refreshPapers()
+            void refreshAnalysis()
+            void refreshMatrix()
+            void refreshProgress()
+          }}
+          onStartHighYieldQuiz={() => {
+            setQuizIntent({ useHighYield: true })
+            setScreen('quiz')
+          }}
+          onStartTopicQuiz={(topic) => {
+            setQuizIntent({ useWeakSpots: false, topic })
+            setScreen('quiz')
+          }}
+          onAskQuestion={(text) => {
+            createSession([{ id: `turn-${Date.now()}`, role: 'user', text }])
+            setScreen('ask')
+          }}
         />
       ) : null}
 
       {screen === 'progress' ? (
         <ProgressScreen
           progress={progress}
+          priorityMatrix={priorityMatrix}
           loading={progressLoading}
           error={progressError}
           onRefresh={retryBackend}
           onStartWeakQuiz={() => {
             setQuizIntent({ useWeakSpots: true })
+            setScreen('quiz')
+          }}
+          onStartHighYieldQuiz={() => {
+            setQuizIntent({ useHighYield: true })
             setScreen('quiz')
           }}
           onStartTopicQuiz={(topic) => {
@@ -217,7 +320,12 @@ export default function App() {
           offline={offline}
           offlineMessage={backendError}
           onRetry={retryBackend}
-          onDocumentsChanged={() => void refreshDocuments()}
+          onDocumentsChanged={() => {
+            void refreshDocuments()
+            void refreshPapers()
+            void refreshAnalysis()
+            void refreshMatrix()
+          }}
         />
       ) : null}
     </AppShell>

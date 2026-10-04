@@ -14,6 +14,8 @@ export function Sidebar({
   onSelectTheme,
   documents,
   weakSpots,
+  papersCount,
+  highYieldCount,
   model,
   models,
   switchingModel,
@@ -34,6 +36,8 @@ export function Sidebar({
   onSelectTheme: (next: ThemePreference) => void
   documents: DocumentInfo[]
   weakSpots: number
+  papersCount?: number
+  highYieldCount?: number
   model: string | null
   models: ModelInfo[]
   switchingModel: boolean
@@ -118,11 +122,17 @@ export function Sidebar({
               {!collapsed && id === 'notes' && documents.length > 0 ? (
                 <span className="nav__count">{documents.length}</span>
               ) : null}
+              {!collapsed && id === 'papers' && (papersCount ?? 0) > 0 ? (
+                <span className="nav__count" style={highYieldCount ? { color: 'var(--danger)' } : undefined}>
+                  {papersCount}
+                </span>
+              ) : null}
               {!collapsed && id === 'progress' && weakSpots > 0 ? (
                 <span className="nav__count">{weakSpots}</span>
               ) : null}
               {collapsed &&
               ((id === 'notes' && documents.length > 0) ||
+                (id === 'papers' && (papersCount ?? 0) > 0) ||
                 (id === 'progress' && weakSpots > 0)) ? (
                 <span className="nav__dot-badge" />
               ) : null}
