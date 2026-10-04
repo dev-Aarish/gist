@@ -17,7 +17,8 @@ from backend.ingest import (
     reset_index,
     get_ollama_client,
     list_installed_models,
-    resolve_installed_model
+    resolve_installed_model,
+    auto_select_models
 )
 from backend.rag import ask_question, AskResponse, stream_ask_question
 from backend.quiz import (
@@ -37,6 +38,9 @@ from backend.tracker import (
 # Initialize database on startup
 init_db()
 
+# Auto-detect best installed models if offline or defaults missing
+auto_select_models()
+
 app = FastAPI(
     title="Exam Buddy API",
     description="Offline, Private AI Study Partner powered by Local LLMs (Ollama)",
@@ -47,6 +51,7 @@ app = FastAPI(
 def warmup_models():
     """Background task to pre-load Ollama LLM and embedding models into memory."""
     try:
+        auto_select_models()
         client = get_ollama_client()
         # Warm up main LLM model so it stays in RAM/VRAM
         client.chat(
@@ -132,6 +137,7 @@ def health_check():
     ollama_status = "unknown"
     models_available = []
     try:
+        auto_select_models()
         import ollama
         client = ollama.Client(host=settings.ollama_host)
         tags = client.list()
@@ -279,6 +285,7 @@ def warmup_endpoint():
 def get_models():
     """List the chat models installed in Ollama and which one is active."""
     try:
+        auto_select_models()
         models = list_installed_models()
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Could not reach Ollama: {str(e)}")

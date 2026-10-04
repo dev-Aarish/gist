@@ -3,7 +3,12 @@ from typing import List, Dict, Any, Optional, Generator
 from pydantic import BaseModel, Field
 
 from backend.config import settings
-from backend.ingest import get_collection, get_ollama_client, generate_embeddings
+from backend.ingest import (
+    get_collection,
+    get_ollama_client,
+    generate_embeddings,
+    get_fallback_models
+)
 from backend.prompts import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
 
 
@@ -154,22 +159,19 @@ def ask_question(
         "num_predict": settings.max_predict_tokens
     }
 
-    try:
-        response = client.chat(
-            model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": RAG_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            options=options,
-            keep_alive=settings.keep_alive
-        )
-        answer_text = response["message"]["content"].strip()
-    except Exception as e:
-        # Try fallback model if primary fails
+    models_to_try = [settings.llm_model]
+    for fb in get_fallback_models(exclude=settings.llm_model):
+        if fb not in models_to_try:
+            models_to_try.append(fb)
+
+    answer_text = None
+    used_model = settings.llm_model
+    last_error = None
+
+    for model_name in models_to_try:
         try:
             response = client.chat(
-                model=settings.fallback_model,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": RAG_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt}
@@ -178,13 +180,19 @@ def ask_question(
                 keep_alive=settings.keep_alive
             )
             answer_text = response["message"]["content"].strip()
-        except Exception:
-            raise RuntimeError(f"Error querying LLM via Ollama: {str(e)}")
+            used_model = model_name
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if answer_text is None:
+        raise RuntimeError(f"Error querying LLM via Ollama: {str(last_error)}")
 
     return AskResponse(
         answer=answer_text,
         sources=retrieval["citations"],
-        model=settings.llm_model,
+        model=used_model,
         has_notes=True
     )
 
@@ -237,34 +245,19 @@ def stream_ask_question(
             return getattr(msg_obj, "content", "")
         return ""
 
-    full_tokens: List[str] = []
-    target_model = settings.llm_model
+    models_to_try = [settings.llm_model]
+    for fb in get_fallback_models(exclude=settings.llm_model):
+        if fb not in models_to_try:
+            models_to_try.append(fb)
 
-    try:
-        stream = client.chat(
-            model=target_model,
-            messages=[
-                {"role": "system", "content": RAG_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            options=options,
-            stream=True,
-            keep_alive=settings.keep_alive
-        )
-        for chunk in stream:
-            token = _extract_token(chunk)
-            if token:
-                full_tokens.append(token)
-                yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+    stream_success = False
+    last_error = None
 
-        yield f"data: {json.dumps({'type': 'done', 'answer': ''.join(full_tokens)})}\n\n"
-
-    except Exception:
-        # Fallback to secondary model
+    for model_name in models_to_try:
         try:
-            target_model = settings.fallback_model
+            full_tokens: List[str] = []
             stream = client.chat(
-                model=target_model,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": RAG_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt}
@@ -279,7 +272,14 @@ def stream_ask_question(
                     full_tokens.append(token)
                     yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'done', 'answer': ''.join(full_tokens)})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'answer': ''.join(full_tokens), 'model': model_name})}\n\n"
+            stream_success = True
+            break
+
         except Exception as err:
-            yield f"data: {json.dumps({'type': 'error', 'error': str(err)})}\n\n"
+            last_error = err
+            continue
+
+    if not stream_success:
+        yield f"data: {json.dumps({'type': 'error', 'error': str(last_error)})}\n\n"
 

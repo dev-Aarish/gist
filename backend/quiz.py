@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional, Literal
 from pydantic import BaseModel, Field, ValidationError
 
 from backend.config import settings
-from backend.ingest import get_collection, get_ollama_client
+from backend.ingest import get_collection, get_ollama_client, get_fallback_models
 from backend.prompts import (
     QUIZ_SYSTEM_PROMPT,
     QUIZ_USER_PROMPT,
@@ -167,45 +167,55 @@ def generate_quiz(
         {"role": "user", "content": user_prompt}
     ]
 
+    models_to_try = [settings.llm_model]
+    for fb in get_fallback_models(exclude=settings.llm_model):
+        if fb not in models_to_try:
+            models_to_try.append(fb)
+
     last_error = None
     quiz_data: Optional[QuizSchema] = None
 
-    for attempt in range(max_retries):
-        try:
-            response = client.chat(
-                model=settings.llm_model,
-                messages=messages,
-                format="json",
-                options={
-                    "temperature": settings.quiz_temperature
-                },
-                keep_alive=settings.keep_alive
-            )
+    for model_name in models_to_try:
+        model_messages = list(messages)
+        for attempt in range(max_retries):
+            try:
+                response = client.chat(
+                    model=model_name,
+                    messages=model_messages,
+                    format="json",
+                    options={
+                        "temperature": settings.quiz_temperature
+                    },
+                    keep_alive=settings.keep_alive
+                )
 
-            raw_json_str = response["message"]["content"].strip()
-            parsed_dict = json.loads(raw_json_str)
+                raw_json_str = response["message"]["content"].strip()
+                parsed_dict = json.loads(raw_json_str)
 
-            # Handle possible nested wrappers
-            if "questions" not in parsed_dict and isinstance(parsed_dict, list):
-                parsed_dict = {"topic": target_topic, "questions": parsed_dict}
-            elif "questions" not in parsed_dict and "quiz" in parsed_dict:
-                parsed_dict = parsed_dict["quiz"]
+                # Handle possible nested wrappers
+                if "questions" not in parsed_dict and isinstance(parsed_dict, list):
+                    parsed_dict = {"topic": target_topic, "questions": parsed_dict}
+                elif "questions" not in parsed_dict and "quiz" in parsed_dict:
+                    parsed_dict = parsed_dict["quiz"]
 
-            if "topic" not in parsed_dict:
-                parsed_dict["topic"] = target_topic
+                if "topic" not in parsed_dict:
+                    parsed_dict["topic"] = target_topic
 
-            # Validate against Pydantic schema
-            quiz_data = QuizSchema.model_validate(parsed_dict)
+                # Validate against Pydantic schema
+                quiz_data = QuizSchema.model_validate(parsed_dict)
+                break
+
+            except (json.JSONDecodeError, ValidationError, Exception) as e:
+                last_error = str(e)
+                # Add error feedback to prompt messages for retry
+                model_messages.append({"role": "assistant", "content": raw_json_str if 'raw_json_str' in locals() else ""})
+                model_messages.append({
+                    "role": "user",
+                    "content": f"The previous response failed validation with error: {last_error}. Please correct the formatting and output valid JSON according to the schema."
+                })
+
+        if quiz_data and quiz_data.questions:
             break
-
-        except (json.JSONDecodeError, ValidationError, Exception) as e:
-            last_error = str(e)
-            # Add error feedback to prompt messages for retry
-            messages.append({"role": "assistant", "content": raw_json_str if 'raw_json_str' in locals() else ""})
-            messages.append({
-                "role": "user",
-                "content": f"The previous response failed validation with error: {last_error}. Please correct the formatting and output valid JSON according to the schema."
-            })
 
     if not quiz_data or not quiz_data.questions:
         raise RuntimeError(f"Failed to generate valid quiz after {max_retries} attempts. Last error: {last_error}")
@@ -254,32 +264,40 @@ def grade_short_answer(
     )
 
     client = get_ollama_client()
-    try:
-        response = client.chat(
-            model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": "You are a fair, objective exam grader. Output only valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            format="json",
-            options={"temperature": 0.1},
-            keep_alive=settings.keep_alive
-        )
-        data = json.loads(response["message"]["content"].strip())
-        return {
-            "is_correct": bool(data.get("is_correct", False)),
-            "feedback": data.get("feedback", "")
-        }
-    except Exception:
-        # Fallback to loose containment
-        is_corr = (
-            correct_answer.lower() in user_answer.lower() or
-            user_answer.lower() in correct_answer.lower()
-        )
-        return {
-            "is_correct": is_corr,
-            "feedback": "Graded via keyword matching fallback."
-        }
+    models_to_try = [settings.llm_model]
+    for fb in get_fallback_models(exclude=settings.llm_model):
+        if fb not in models_to_try:
+            models_to_try.append(fb)
+
+    for model_name in models_to_try:
+        try:
+            response = client.chat(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": "You are a fair, objective exam grader. Output only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                format="json",
+                options={"temperature": 0.1},
+                keep_alive=settings.keep_alive
+            )
+            data = json.loads(response["message"]["content"].strip())
+            return {
+                "is_correct": bool(data.get("is_correct", False)),
+                "feedback": data.get("feedback", "")
+            }
+        except Exception:
+            continue
+
+    # Fallback to loose containment
+    is_corr = (
+        correct_answer.lower() in user_answer.lower() or
+        user_answer.lower() in correct_answer.lower()
+    )
+    return {
+        "is_correct": is_corr,
+        "feedback": "Graded via keyword matching fallback."
+    }
 
 
 def grade_quiz_submission(submission: QuizSubmission) -> QuizResult:

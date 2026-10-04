@@ -28,14 +28,32 @@ def _model_name(entry: Any) -> str:
     return str(getattr(entry, "model", "") or getattr(entry, "name", "") or "")
 
 
+def _is_embedding_model(name: str, family: Optional[str] = None, capabilities: Optional[List[str]] = None) -> bool:
+    """Determine if an Ollama model is an embedding model rather than a chat model."""
+    name_lower = name.lower()
+    family_lower = str(family).lower() if family else ""
+
+    if "bert" in family_lower or "nomic-bert" in family_lower:
+        return True
+    if any(keyword in name_lower for keyword in ["embed", "minilm", "bge-", "bge_", "arctic-embed", "embedding"]):
+        return True
+    if capabilities and "embedding" in capabilities and "completion" not in capabilities:
+        return True
+    return False
+
+
 def list_installed_models() -> List[Dict[str, Any]]:
-    """List models pulled into the local Ollama runtime, with size and family.
+    """List chat models pulled into the local Ollama runtime, with size and family.
 
     Embedding-only models are excluded: they can't answer questions, so
     offering them as a chat model would just produce broken responses.
     """
     client = get_ollama_client()
-    raw = client.list()
+    try:
+        raw = client.list()
+    except Exception:
+        return []
+
     models = getattr(raw, "models", None)
     if models is None:
         models = raw.get("models", []) if isinstance(raw, dict) else []
@@ -47,6 +65,7 @@ def list_installed_models() -> List[Dict[str, Any]]:
             continue
         size = entry.get("size") if isinstance(entry, dict) else getattr(entry, "size", None)
         details = entry.get("details") if isinstance(entry, dict) else getattr(entry, "details", None)
+        capabilities = entry.get("capabilities") if isinstance(entry, dict) else getattr(entry, "capabilities", None)
         family = None
         if details is not None:
             family = (
@@ -54,9 +73,10 @@ def list_installed_models() -> List[Dict[str, Any]]:
                 if isinstance(details, dict)
                 else getattr(details, "family", None)
             )
-        if family and "bert" in str(family).lower():
-            # nomic-embed-text and friends are embedding models, not chat models.
+
+        if _is_embedding_model(name, family, capabilities):
             continue
+
         installed.append({
             "name": name,
             "size_bytes": int(size) if isinstance(size, (int, float)) else None,
@@ -67,12 +87,106 @@ def list_installed_models() -> List[Dict[str, Any]]:
     return installed
 
 
-def resolve_installed_model(requested: str) -> Optional[str]:
-    """Match a requested model against what's installed, tolerating tags.
+def list_installed_embedding_models() -> List[str]:
+    """List embedding models pulled into the local Ollama runtime."""
+    client = get_ollama_client()
+    try:
+        raw = client.list()
+    except Exception:
+        return []
 
-    Ollama treats `qwen2.5:7b` and `qwen2.5:7b-instruct` as different tags, so
-    an exact match is tried first, then the same base name with any tag.
-    """
+    models = getattr(raw, "models", None)
+    if models is None:
+        models = raw.get("models", []) if isinstance(raw, dict) else []
+
+    embed_models: List[str] = []
+    for entry in models:
+        name = _model_name(entry)
+        if not name:
+            continue
+        details = entry.get("details") if isinstance(entry, dict) else getattr(entry, "details", None)
+        capabilities = entry.get("capabilities") if isinstance(entry, dict) else getattr(entry, "capabilities", None)
+        family = None
+        if details is not None:
+            family = (
+                details.get("family")
+                if isinstance(details, dict)
+                else getattr(details, "family", None)
+            )
+
+        if _is_embedding_model(name, family, capabilities):
+            embed_models.append(name)
+
+    return embed_models
+
+
+CHAT_MODEL_PREFERENCES = [
+    "qwen2.5:32b", "qwen2.5:14b", "qwen2.5:7b", "qwen2.5",
+    "deepseek-r1:32b", "deepseek-r1:14b", "deepseek-r1:8b", "deepseek-r1:7b", "deepseek-r1",
+    "llama3.3", "llama3.1:70b", "llama3.1:8b", "llama3.1",
+    "mistral-nemo", "mistral:7b", "mistral",
+    "gemma2:27b", "gemma2:9b", "gemma2:2b", "gemma2",
+    "phi4", "phi3.5", "phi3",
+    "llama3.2:3b", "llama3.2:1b", "llama3.2",
+    "llama3:8b", "llama3",
+    "qwen2:7b", "qwen2",
+    "tinyllama"
+]
+
+EMBED_MODEL_PREFERENCES = [
+    "nomic-embed-text",
+    "bge-m3",
+    "bge-large",
+    "mxbai-embed-large",
+    "all-minilm",
+    "snowflake-arctic-embed",
+    "bge-small"
+]
+
+
+def get_best_installed_chat_model() -> Optional[str]:
+    """Score and return the best installed chat model based on capability tiers and parameter size."""
+    installed = list_installed_models()
+    if not installed:
+        return None
+
+    def model_score(item: Dict[str, Any]) -> tuple:
+        name = item["name"].lower()
+        # Find match index in preference list (lower index = higher priority)
+        pref_rank = len(CHAT_MODEL_PREFERENCES)
+        for idx, pattern in enumerate(CHAT_MODEL_PREFERENCES):
+            p = pattern.lower()
+            if name == p or name.startswith(f"{p}:") or (":" not in p and name.startswith(p)):
+                pref_rank = idx
+                break
+        size = item.get("size_bytes") or 0
+        # Sort key: lowest pref_rank first, then largest size_bytes
+        return (pref_rank, -size)
+
+    sorted_models = sorted(installed, key=model_score)
+    return sorted_models[0]["name"]
+
+
+def get_best_installed_embedding_model() -> Optional[str]:
+    """Score and return the best installed embedding model."""
+    installed = list_installed_embedding_models()
+    if not installed:
+        return None
+
+    for pattern in EMBED_MODEL_PREFERENCES:
+        p = pattern.lower()
+        for name in installed:
+            name_lower = name.lower()
+            if name_lower == p or name_lower.startswith(f"{p}:") or name_lower.startswith(p):
+                return name
+
+    return installed[0]
+
+
+def resolve_installed_model(requested: str) -> Optional[str]:
+    """Match a requested chat model against what's installed, tolerating tags."""
+    if not requested:
+        return None
     exact = requested.strip()
     installed = [m["name"] for m in list_installed_models()]
     if exact in installed:
@@ -82,6 +196,70 @@ def resolve_installed_model(requested: str) -> Optional[str]:
         if name == base or name.startswith(f"{base}:"):
             return name
     return None
+
+
+def resolve_installed_embedding_model(requested: str) -> Optional[str]:
+    """Match a requested embedding model against what's installed, tolerating tags."""
+    if not requested:
+        return None
+    exact = requested.strip()
+    installed = list_installed_embedding_models()
+    if exact in installed:
+        return exact
+    base = exact.split(":", 1)[0]
+    for name in installed:
+        if name == base or name.startswith(f"{base}:"):
+            return name
+    return None
+
+
+def get_fallback_models(exclude: Optional[str] = None) -> List[str]:
+    """Return all available installed chat models excluding the given model."""
+    try:
+        all_models = [m["name"] for m in list_installed_models()]
+        return [m for m in all_models if m != exclude]
+    except Exception:
+        fallback = getattr(settings, "fallback_model", None)
+        return [fallback] if fallback and fallback != exclude else []
+
+
+def auto_select_models() -> None:
+    """
+    Inspect installed Ollama models and dynamically select the best available
+    chat and embedding models when offline or defaults are missing.
+    """
+    from backend.config import persist_selected_model
+
+    # 1. Chat model selection
+    env_llm = os.getenv("LLM_MODEL")
+    if env_llm:
+        resolved = resolve_installed_model(env_llm)
+        if resolved:
+            settings.llm_model = resolved
+    else:
+        # If current llm_model is not installed, select the best installed model
+        if not resolve_installed_model(settings.llm_model):
+            best = get_best_installed_chat_model()
+            if best:
+                settings.llm_model = best
+                persist_selected_model(best)
+
+    # Update fallback model to another installed model
+    fallbacks = get_fallback_models(exclude=settings.llm_model)
+    if fallbacks:
+        settings.fallback_model = fallbacks[0]
+
+    # 2. Embedding model selection
+    env_embed = os.getenv("EMBEDDING_MODEL")
+    if env_embed:
+        resolved_embed = resolve_installed_embedding_model(env_embed)
+        if resolved_embed:
+            settings.embedding_model = resolved_embed
+    else:
+        if not resolve_installed_embedding_model(settings.embedding_model):
+            best_embed = get_best_installed_embedding_model()
+            if best_embed:
+                settings.embedding_model = best_embed
 
 
 def get_collection() -> chromadb.Collection:
