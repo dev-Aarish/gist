@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-first-paint>
+<html lang="en" data-theme="dark" data-first-paint>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="dark light" />
     <meta name="description" content="Gist — The private, offline-first exam study companion powered by local AI. Study from your own notes with page-exact citations." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- Open Graph / Social Sharing -->
@@ -15,16 +15,14 @@
     <meta name="twitter:description" content="Ace your exams without giving your notes to the cloud. 100% private, local AI running directly on your machine." />
     <title>Gist — Private, Offline Exam Study Companion</title>
     <script>
-      // Applied before React loads so a saved theme never flashes.
+      // Applied before React loads so a saved theme never flashes (defaults to dark).
       (function () {
         try {
           var saved = localStorage.getItem('theme');
-          var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var theme =
-            saved === 'light' || saved === 'dark' ? saved : dark ? 'dark' : 'light';
+          var theme = saved === 'light' ? 'light' : 'dark';
           document.documentElement.setAttribute('data-theme', theme);
         } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.setAttribute('data-theme', 'dark');
         }
       })();
     </script>

@@ -8,15 +8,15 @@ const STORAGE_KEY = 'theme'
 function readPreference(): ThemePreference {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved
+    if (saved === 'light' || saved === 'dark') return saved
   } catch {
-    /* private mode or blocked storage — fall through to system */
+    /* private mode or blocked storage — fall through to default */
   }
-  return 'system'
+  return 'dark'
 }
 
 function systemTheme(): ResolvedTheme {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return 'dark'
 }
 
 export function useTheme() {
